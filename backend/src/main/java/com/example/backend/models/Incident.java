@@ -10,11 +10,11 @@ public class Incident {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long userId; // ID của nhân viên báo cáo
-    private LocalDateTime reportTime; // Thời gian ghi nhận
-    private String content; // Nội dung sự cố (Mất thẻ, va quẹt xe...)
+    private Long userId; 
+    private LocalDateTime reportTime; 
+    private String content; 
+    private String status; // Thêm trạng thái: PENDING, RESOLVED
 
-    // --- GETTER VÀ SETTER THỦ CÔNG ---
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -26,4 +26,7 @@ public class Incident {
 
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 }

@@ -7,6 +7,6 @@ import java.util.List;
 
 @Repository
 public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long> {
-    // Lấy danh sách các đơn đang chờ duyệt
     List<LeaveRequest> findByStatus(String status);
+    List<LeaveRequest> findByUserId(Long userId); // Thêm dòng này
 }

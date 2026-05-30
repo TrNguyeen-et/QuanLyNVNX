@@ -1,46 +1,23 @@
 package com.example.backend.controllers;
+import com.example.backend.models.*; import com.example.backend.repositories.*; import org.springframework.beans.factory.annotation.Autowired; import org.springframework.http.HttpStatus; import org.springframework.web.bind.annotation.*; import org.springframework.web.server.ResponseStatusException;
+import java.time.LocalDateTime; import java.util.*;
 
-import com.example.backend.models.User;
-import com.example.backend.repositories.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
-import java.util.*;
+@RestController @RequestMapping("/api/admin") @CrossOrigin(origins = "*") public class AdminController {
+    @Autowired private UserRepository userRepository; @Autowired private AuditLogRepository auditLogRepository;
 
-@RestController
-@RequestMapping("/api/admin")
-@CrossOrigin(origins = "*")
-public class AdminController {
+    private void log(String action, String actor) { AuditLog log = new AuditLog(); log.setAction(action); log.setActor(actor); log.setTimestamp(LocalDateTime.now()); auditLogRepository.save(log); }
 
-    @Autowired
-    private UserRepository userRepository;
+    @GetMapping("/stats") public Map<String, Object> getStats() { Map<String, Object> s = new HashMap<>(); s.put("totalUsers", userRepository.findAll().size()); return s; }
+    @GetMapping("/users") public List<User> getAll() { return userRepository.findAll(); }
+    @GetMapping("/logs") public List<AuditLog> getLogs() { return auditLogRepository.findAllByOrderByIdDesc(); }
 
-    @GetMapping("/stats")
-    public Map<String, Object> getStats() {
-        Map<String, Object> stats = new HashMap<>();
-        stats.put("totalMonthlyBikes", 15240);
-        stats.put("projectedRevenue", "30.4M");
-        stats.put("activeStaff", 8);
-        return stats;
-    }
-
-    @GetMapping("/parking-zones")
-    public List<Map<String, Object>> getZones() {
-        return List.of(
-            Map.of("manager", "Nguyễn Văn A", "zone", "Khu A - Tòa Trung Tâm", "capacity", 500, "status", "OPEN"),
-            Map.of("manager", "Trần Thị B", "zone", "Khu B - Thư Viện", "capacity", 300, "status", "OPEN")
-        );
-    }
-
-    // --- PHẦN VIỆC CỦA BẠN: TẠO TÀI KHOẢN NHÂN VIÊN ---
     @PostMapping("/create-account")
-    public Map<String, Object> createStaffAccount(@RequestBody User newUser) {
-        newUser.setStatus("ACTIVE"); // Mặc định lúc tạo là đang làm việc
-        User savedUser = userRepository.save(newUser);
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("status", "success");
-        response.put("message", "Tạo tài khoản cho " + savedUser.getFullName() + " thành công!");
-        response.put("userId", savedUser.getId());
-        return response;
-    }
+    public Map<String, Object> create(@RequestBody User u) { u.setStatus("ACTIVE"); User saved = userRepository.save(u); log("Tao tai khoan: " + u.getUsername(), "ADMIN");
+        Map<String, Object> r = new HashMap<>(); r.put("status", "success"); r.put("message", "Tao thanh cong!"); r.put("userId", saved.getId()); return r; }
+
+    @PutMapping("/users/{id}")
+    public User update(@PathVariable long id, @RequestBody User u) { return userRepository.findById(id).map(user -> { user.setUsername(u.getUsername()); user.setFullName(u.getFullName()); user.setRole(u.getRole()); user.setStatus(u.getStatus()); log("Cap nhat tai khoan ID: " + id, "ADMIN"); return userRepository.save(user); }).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found")); }
+
+    @DeleteMapping("/users/{id}")
+    public Map<String, String> delete(@PathVariable long id) { if(!userRepository.existsById(id)) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"); userRepository.deleteById(id); log("Xoa tai khoan ID: " + id, "ADMIN"); Map<String, String> r = new HashMap<>(); r.put("message", "Xoa thanh cong!"); return r; }
 }
