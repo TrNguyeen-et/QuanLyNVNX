@@ -13,6 +13,8 @@ public class Incident {
     private Long userId; // ID của nhân viên báo cáo
     private LocalDateTime reportTime; // Thời gian ghi nhận
     private String content; // Nội dung sự cố (Mất thẻ, va quẹt xe...)
+    private String status = "PENDING"; // PENDING, REVIEWED
+    private String managerNote;
 
     // --- GETTER VÀ SETTER THỦ CÔNG ---
     public Long getId() { return id; }
@@ -26,4 +28,10 @@ public class Incident {
 
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    public String getManagerNote() { return managerNote; }
+    public void setManagerNote(String managerNote) { this.managerNote = managerNote; }
 }

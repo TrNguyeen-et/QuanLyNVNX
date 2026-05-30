@@ -7,20 +7,31 @@ const Login = ({ setUser }) => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (username === 'admin' && password === 'admin123') {
-      setUser({ id: 99, username: 'admin', fullName: 'Quản trị viên', role: 'admin' });
-      navigate('/dashboard');
-    } else if (username === 'manager' && password === 'manager123') {
-      setUser({ id: 99, username: 'manager', fullName: 'Quản lý nhà xe', role: 'manager' });
-      navigate('/dashboard');
-    } else if (username === 'staff' && password === 'staff123') {
-      // Đã gắn id: 1 tương ứng với nv001 trong Database để gọi API
-      setUser({ id: 1, username: 'nv001', fullName: 'Nhân viên bãi xe', role: 'staff' });
-      navigate('/dashboard');
-    } else {
-      setError('Tên đăng nhập hoặc mật khẩu không đúng');
+    try {
+      const response = await fetch('http://localhost:8080/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        // data là object User từ backend
+        setUser({ 
+          id: data.id, 
+          username: data.username, 
+          fullName: data.fullName || data.username, 
+          role: data.role.toLowerCase() 
+        });
+        navigate('/dashboard');
+      } else {
+        setError(data.message || 'Tên đăng nhập hoặc mật khẩu không đúng');
+      }
+    } catch (err) {
+      setError('Lỗi kết nối tới máy chủ. Vui lòng thử lại sau.');
     }
   };
 

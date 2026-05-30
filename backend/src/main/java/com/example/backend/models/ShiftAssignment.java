@@ -20,6 +20,7 @@ public class ShiftAssignment {
 
     private LocalDate workDate; 
     private String status; 
+    private String position; // VA- d: CA?ng chA-nh, Khu A, Khu B
 
     // --- GETTER VÀ SETTER THỦ CÔNG ---
     public Long getId() {
@@ -60,5 +61,13 @@ public class ShiftAssignment {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getPosition() {
+        return position;
+    }
+
+    public void setPosition(String position) {
+        this.position = position;
     }
 }

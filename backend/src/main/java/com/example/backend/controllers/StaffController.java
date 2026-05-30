@@ -20,7 +20,9 @@ public class StaffController {
     @Autowired private UserRepository userRepository;
     @Autowired private ShiftAssignmentRepository shiftAssignmentRepository;
     @Autowired private AttendanceRepository attendanceRepository;
-    @Autowired private IncidentRepository incidentRepository; // Thêm mới
+    @Autowired private IncidentRepository incidentRepository;
+    @Autowired private LeaveRequestRepository leaveRequestRepository;
+    @Autowired private ShiftHandoverRepository shiftHandoverRepository;
 
     @GetMapping("/{userId}/schedule")
     public List<ShiftAssignment> getMySchedule(@PathVariable long userId) {
@@ -130,5 +132,64 @@ public class StaffController {
         incidentRepository.save(incident);
 
         return Map.of("message", "Da gui bien ban ghi nhan su co thanh cong!");
+    }
+
+    @PostMapping("/leave-request")
+    public Map<String, String> submitLeaveRequest(@RequestBody Map<String, String> data) {
+        Long userId = Long.parseLong(data.get("userId"));
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Khong tim thay nhan vien"));
+
+        LeaveRequest request = new LeaveRequest();
+        request.setUser(user);
+        request.setRequestType(data.get("requestType")); // LEAVE or SHIFT_SWAP
+        request.setTargetDate(java.time.LocalDate.parse(data.get("targetDate")));
+        request.setReason(data.get("reason"));
+        request.setStatus("PENDING");
+
+        if (data.containsKey("substituteUserId") && data.get("substituteUserId") != null) {
+            User substituteUser = userRepository.findById(Long.parseLong(data.get("substituteUserId")))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nguoi truc thay khong ton tai"));
+            request.setSubstituteUser(substituteUser);
+        }
+
+        leaveRequestRepository.save(request);
+        return Map.of("message", "Da gui yeu cau thanh cong!");
+    }
+
+    @GetMapping("/{userId}/leave-requests")
+    public List<LeaveRequest> getMyRequests(@PathVariable long userId) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Khong tim thay nhan vien"));
+        
+        List<LeaveRequest> allRequests = leaveRequestRepository.findAll();
+        List<LeaveRequest> myRequests = new ArrayList<>();
+        for (LeaveRequest lr : allRequests) {
+            if (lr.getUser().getId().equals(userId)) {
+                myRequests.add(lr);
+            }
+        }
+        return myRequests;
+    }
+
+    @PostMapping("/handover")
+    public Map<String, String> submitHandover(@RequestBody Map<String, String> data) {
+        Long fromAssignmentId = Long.parseLong(data.get("assignmentId"));
+        Long toUserId = Long.parseLong(data.get("toUserId"));
+        
+        ShiftAssignment assignment = shiftAssignmentRepository.findById(fromAssignmentId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Khong tim thay ca truc"));
+            
+        User toUser = userRepository.findById(toUserId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Khong tim thay nhan vien nhan ban giao"));
+
+        ShiftHandover handover = new ShiftHandover();
+        handover.setFromAssignment(assignment);
+        handover.setToUser(toUser);
+        handover.setNotes(data.get("notes"));
+        handover.setHandoverTime(LocalDateTime.now());
+        
+        shiftHandoverRepository.save(handover);
+        return Map.of("message", "Da ban giao ca truc thanh cong!");
     }
 }

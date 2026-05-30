@@ -19,6 +19,7 @@ public class User {
     private Double salary;
     private String workShift; //SHIFT 1: 6 AM - 14 PM, SHIFT 2: 14 PM - 22 PM
     private String workDays; // Ngày trong tuần (Sunday, Monday,...) 
+    private String groupName; // Tên nhóm (ví dụ: Nhóm A, Nhóm B, Nhóm C)
 
     // Explicit getters
     public Long getId() {
@@ -57,6 +58,10 @@ public class User {
         return workDays;
     }
 
+    public String getGroupName() {
+        return groupName;
+    }
+
     // Explicit setters
     public void setId(Long id) {
         this.id = id;
@@ -92,5 +97,9 @@ public class User {
 
     public void setWorkDays(String workDays) {
         this.workDays = workDays;
+    }
+
+    public void setGroupName(String groupName) {
+        this.groupName = groupName;
     }
 }

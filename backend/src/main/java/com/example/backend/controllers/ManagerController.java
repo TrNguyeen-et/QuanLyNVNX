@@ -19,6 +19,7 @@ public class ManagerController {
     @Autowired private ShiftAssignmentRepository shiftAssignmentRepository;
     @Autowired private LeaveRequestRepository leaveRequestRepository;
     @Autowired private AttendanceRepository attendanceRepository;
+    @Autowired private IncidentRepository incidentRepository;
 
     @GetMapping("/staff-list")
     public List<User> getAllStaff() { return userRepository.findAll(); }
@@ -86,6 +87,11 @@ public class ManagerController {
         assignment.setShift(shift);
         assignment.setWorkDate(workDate);
         assignment.setStatus("SCHEDULED");
+        
+        if (requestData.containsKey("position") && requestData.get("position") != null) {
+            assignment.setPosition(requestData.get("position").toString());
+        }
+
         shiftAssignmentRepository.save(assignment);
 
         return Map.of("status", "success", "message", "Da phan ca thanh cong");
@@ -104,5 +110,57 @@ public class ManagerController {
         request.setStatus(isApproved ? "APPROVED" : "REJECTED");
         leaveRequestRepository.save(request);
         return Map.of("message", isApproved ? "Da duyet don" : "Da tu choi don");
+    }
+
+    @GetMapping("/incidents")
+    public List<Incident> getAllIncidents() {
+        return incidentRepository.findAll();
+    }
+
+    @PutMapping("/incidents/{id}/review")
+    public Map<String, String> reviewIncident(@PathVariable long id, @RequestBody Map<String, String> data) {
+        Incident incident = incidentRepository.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Khong tim thay su co"));
+        
+        incident.setStatus(data.get("status"));
+        incident.setManagerNote(data.get("managerNote"));
+        incidentRepository.save(incident);
+        
+        return Map.of("message", "Da cap nhat trang thai su co");
+    }
+
+    @GetMapping("/hr-report")
+    public List<Map<String, Object>> getHrReport() {
+        List<User> staffs = userRepository.findAll();
+        List<Map<String, Object>> report = new ArrayList<>();
+
+        for (User s : staffs) {
+            if ("ADMIN".equals(s.getRole()) || "MANAGER".equals(s.getRole())) continue;
+
+            Map<String, Object> item = new HashMap<>();
+            item.put("userId", s.getId());
+            item.put("name", s.getFullName());
+            
+            // Tính số lần đi trễ
+            List<ShiftAssignment> assignments = shiftAssignmentRepository.findByUser(s);
+            int lateCount = 0;
+            for (ShiftAssignment sa : assignments) {
+                Attendance att = attendanceRepository.findByShiftAssignment(sa);
+                if (att != null && "LATE".equals(att.getStatus())) {
+                    lateCount++;
+                }
+            }
+            item.put("lateCount", lateCount);
+
+            // Tính số ngày nghỉ (APPROVED)
+            List<LeaveRequest> leaves = leaveRequestRepository.findAll();
+            long leaveDays = leaves.stream()
+                .filter(l -> l.getUser().getId().equals(s.getId()) && "APPROVED".equals(l.getStatus()) && "LEAVE".equals(l.getRequestType()))
+                .count();
+            
+            item.put("leaveDays", leaveDays);
+            report.add(item);
+        }
+        return report;
     }
 }
