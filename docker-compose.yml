@@ -1,27 +1,35 @@
-services: 
+version: '3.8'
+
+services:
   db-server:
     image: mysql:8.0
-    env_file: 
-      - .env
+    container_name: db-server
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: quan_ly_nha_xe
     ports:
-      - "3307:3306"
+      - "3307:3306" # Map port 3307 của máy bạn vào 3306 của container
     volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-      - ./mysql_data:/var/lib/mysql
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql # TỰ ĐỘNG CHẠY FILE SQL KHI TẠO DB
+
   web-app:
-    build: ./backend 
+    build: ./backend
+    container_name: web-app
     ports:
       - "8080:8080"
-    container_name: springboot_web_app
-    env_file: 
-      - .env
     depends_on:
       - db-server
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db-server:3306/quan_ly_nha_xe?allowPublicKeyRetrieval=true&useSSL=false
+
   frontend:
     build: ./frontend
-    container_name: react_frontend
+    container_name: frontend
     ports:
-      - "5173:5173"
-    stdin_open: true 
+      - "5173:5173" # Hoặc 3000 tùy cấu hình
     depends_on:
       - web-app
+
+volumes:
+  mysql_data:

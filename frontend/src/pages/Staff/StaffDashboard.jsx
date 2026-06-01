@@ -1,249 +1,690 @@
-import React, { useState, useEffect } from 'react';
+// src/pages/staff/StaffDashboard.jsx
+import { useState, useEffect, useCallback } from "react";
+import "./StaffDashboard.css";
 
-const StaffDashboard = ({ user }) => {
-  const [activeTab, setActiveTab] = useState('checkin');
-  const [todayAssignment, setTodayAssignment] = useState(null);
-  const [status, setStatus] = useState('');
-  const [message, setMessage] = useState('');
-  const [penaltyInfo, setPenaltyInfo] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [schedule, setSchedule] = useState([]);
-  const [salary, setSalary] = useState(null);
-  
-  // Form state
-  const [incidentContent, setIncidentContent] = useState('');
-  const [incidentMsg, setIncidentMsg] = useState('');
-  const [leaveDate, setLeaveDate] = useState('');
-  const [leaveReason, setLeaveReason] = useState('');
-  const [leaveMsg, setLeaveMsg] = useState('');
-  const [swapDate, setSwapDate] = useState('');
-  const [swapReason, setSwapReason] = useState('');
-  const [swapUserId, setSwapUserId] = useState('');
-  const [swapMsg, setSwapMsg] = useState('');
+const API = "http://localhost:8080/api";
+const DAYS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+const MONTHS_VN = [
+  "Tháng 1","Tháng 2","Tháng 3","Tháng 4","Tháng 5","Tháng 6",
+  "Tháng 7","Tháng 8","Tháng 9","Tháng 10","Tháng 11","Tháng 12"
+];
 
-  // Lịch sử phản hồi state
-  const [myRequests, setMyRequests] = useState([]);
-  const [myIncidents, setMyIncidents] = useState([]);
+// ─── helpers ───────────────────────────────────────────────
+function fmtDate(d) {
+  if (!d) return "—";
+  const dt = new Date(d);
+  return dt.toLocaleString("vi-VN", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+}
 
-  useEffect(() => {
-    if (user && user.id) { 
-      fetchScheduleAndTodayAssignment(); 
-      fetchSalary();
-      fetchMyRequests();
-      fetchMyIncidents();
+function Alert({ msg, type }) {
+  if (!msg) return null;
+  return <div className={`alert ${type}`}>{msg}</div>;
+}
+
+// ─── SECTION: LỊCH LÀM VIỆC + CHECKIN/OUT ─────────────────
+function ScheduleSection({ user }) {
+  const today = new Date();
+  const [year, setYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth() + 1); // 1-12
+  const [assignments, setAssignments] = useState([]);
+  const [selectedDay, setSelectedDay] = useState(null);
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [attendance, setAttendance] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState({ text: "", type: "" });
+
+  const monthStr = `${year}-${String(month).padStart(2, "0")}`;
+
+  const loadSchedule = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/staff/${user.id}/schedule?month=${monthStr}`);
+      const data = await res.json();
+      setAssignments(Array.isArray(data) ? data : []);
+    } catch {
+      setAssignments([]);
     }
-  }, [user]);
+    setLoading(false);
+  }, [user.id, monthStr]);
 
-  const fetchScheduleAndTodayAssignment = async () => {
-    try {
-      const res = await fetch(`http://localhost:8080/api/staff/${user.id}/schedule`);
-      if (!res.ok) throw new Error('Lỗi lấy lịch');
-      const data = await res.json(); setSchedule(data);
-      const todayStr = new Date().toISOString().split('T')[0];
-      setTodayAssignment(data.find(item => item.workDate && item.workDate.startsWith(todayStr)) || null);
-    } catch (error) { console.error(error); }
+  useEffect(() => { loadSchedule(); }, [loadSchedule]);
+
+  // Build calendar grid
+  const firstDay = new Date(year, month - 1, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const getAssignmentForDay = (day) => {
+    const dateStr = `${year}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+    return assignments.find(a => a.workDate === dateStr);
   };
 
-  const fetchSalary = async () => {
-    try {
-      const res = await fetch(`http://localhost:8080/api/staff/${user.id}/my-salary`);
-      if (!res.ok) throw new Error('Chưa có lương');
-      setSalary(await res.json());
-    } catch (error) { setSalary(null); }
-  };
-
-  const fetchMyRequests = async () => {
-    try {
-      const res = await fetch(`http://localhost:8080/api/staff/${user.id}/my-requests`);
-      if (res.ok) setMyRequests(await res.json());
-    } catch (error) { console.error(error); }
-  };
-
-  const fetchMyIncidents = async () => {
-    try {
-      const res = await fetch(`http://localhost:8080/api/staff/${user.id}/my-incidents`);
-      if (res.ok) setMyIncidents(await res.json());
-    } catch (error) { console.error(error); }
+  const handleDayClick = async (day) => {
+    const a = getAssignmentForDay(day);
+    setSelectedDay(day);
+    setSelectedAssignment(a || null);
+    setAttendance(null);
+    setMsg({ text: "", type: "" });
+    if (a) {
+      try {
+        const res = await fetch(`${API}/staff/attendance/${a.id}`);
+        if (res.ok) setAttendance(await res.json());
+      } catch { /* chưa có attendance */ }
+    }
   };
 
   const handleCheckIn = async () => {
-    if (!todayAssignment) return setMessage('❌ Hôm nay bạn chưa được phân ca trực.');
-    setIsLoading(true);
     try {
-      const res = await fetch('http://localhost:8080/api/staff/check-in', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ assignmentId: todayAssignment.id }) });
+      const res = await fetch(`${API}/staff/checkin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assignmentId: selectedAssignment.id }),
+      });
       const data = await res.json();
-      if (res.ok) { setStatus('checked-in'); setMessage(`✅ ${data.message}`); setPenaltyInfo(data.penaltyFee > 0 ? `⚠️ Bạn đi trễ ${data.minutesLate} phút. Phạt: ${data.penaltyFee.toLocaleString('vi-VN')} VNĐ` : '✨ Tuyệt vời! Bạn đã đi làm đúng giờ.'); }
-      else { setMessage(`❌ Thất bại: ${data.message || 'Không thể check-in'}`); }
-    } catch (error) { setMessage('❌ Lỗi kết nối đến máy chủ!'); } finally { setIsLoading(false); }
+      if (!res.ok) throw new Error(data.message || "Lỗi check in");
+      setMsg({ text: `✅ ${data.message}`, type: "success" });
+      // Reload attendance
+      const ar = await fetch(`${API}/staff/attendance/${selectedAssignment.id}`);
+      if (ar.ok) setAttendance(await ar.json());
+      loadSchedule();
+    } catch (e) {
+      setMsg({ text: e.message, type: "error" });
+    }
   };
 
   const handleCheckOut = async () => {
-    if (!todayAssignment) return setMessage('❌ Hôm nay bạn chưa được phân ca trực.');
-    setIsLoading(true);
     try {
-      const res = await fetch('http://localhost:8080/api/staff/check-out', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ assignmentId: todayAssignment.id }) });
+      const res = await fetch(`${API}/staff/checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assignmentId: selectedAssignment.id }),
+      });
       const data = await res.json();
-      if (res.ok) { setStatus('checked-out'); setMessage(`👋 ${data.message}`); setPenaltyInfo(null); }
-      else { setMessage(`❌ Thất bại: ${data.message || 'Không thể check-out'}`); }
-    } catch (error) { setMessage('❌ Lỗi kết nối đến máy chủ!'); } finally { setIsLoading(false); }
+      if (!res.ok) throw new Error(data.message || "Lỗi check out");
+      setMsg({ text: `✅ ${data.message}`, type: "success" });
+      const ar = await fetch(`${API}/staff/attendance/${selectedAssignment.id}`);
+      if (ar.ok) setAttendance(await ar.json());
+      loadSchedule();
+    } catch (e) {
+      setMsg({ text: e.message, type: "error" });
+    }
   };
 
-  const handleReportIncident = async () => {
-    if (!incidentContent.trim()) return setIncidentMsg('❌ Vui lòng nhập nội dung sự cố.');
-    setIsLoading(true);
-    try {
-      const res = await fetch('http://localhost:8080/api/staff/report-incident', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, content: incidentContent }) });
-      const data = await res.json();
-      if (res.ok) { setIncidentMsg('✅ Đã gửi biên bản thành công!'); setIncidentContent(''); fetchMyIncidents(); }
-      else { setIncidentMsg(`❌ Thất bại: ${data.message}`); }
-    } catch (error) { setIncidentMsg('❌ Lỗi kết nối đến máy chủ!'); } finally { setIsLoading(false); }
+  const prevMonth = () => {
+    if (month === 1) { setMonth(12); setYear(y => y - 1); }
+    else setMonth(m => m - 1);
+    setSelectedDay(null);
+  };
+  const nextMonth = () => {
+    if (month === 12) { setMonth(1); setYear(y => y + 1); }
+    else setMonth(m => m + 1);
+    setSelectedDay(null);
   };
 
-  const handleRequestLeave = async () => {
-    if (!leaveDate || !leaveReason) return setLeaveMsg('❌ Vui lòng nhập đủ ngày và lý do.');
-    setIsLoading(true);
-    try {
-      const res = await fetch('http://localhost:8080/api/staff/request-leave', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, targetDate: leaveDate, reason: leaveReason }) });
-      const data = await res.json();
-      if (res.ok) { setLeaveMsg('✅ Gửi đơn thành công!'); setLeaveDate(''); setLeaveReason(''); fetchMyRequests(); }
-      else setLeaveMsg(`❌ Thất bại: ${data.message}`);
-    } catch (error) { setLeaveMsg('❌ Lỗi kết nối máy chủ.'); } finally { setIsLoading(false); }
-  };
-
-  const handleRequestSwap = async () => {
-    if (!swapDate || !swapReason || !swapUserId) return setSwapMsg('❌ Vui lòng nhập đủ thông tin.');
-    setIsLoading(true);
-    try {
-      const res = await fetch('http://localhost:8080/api/staff/request-swap', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, substituteUserId: swapUserId, targetDate: swapDate, reason: swapReason }) });
-      const data = await res.json();
-      if (res.ok) { setSwapMsg('✅ Gửi yêu cầu thành công!'); setSwapDate(''); setSwapReason(''); setSwapUserId(''); fetchMyRequests(); }
-      else setSwapMsg(`❌ Thất bại: ${data.message}`);
-    } catch (error) { setSwapMsg('❌ Lỗi kết nối máy chủ.'); } finally { setIsLoading(false); }
-  };
-
-  const tabStyle = (tabName) => ({ padding: '0.6rem 1rem', borderRadius: '100px', border: 'none', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.3s', backgroundColor: activeTab === tabName ? 'var(--primary)' : '#f1f5f9', color: activeTab === tabName ? 'white' : '#64748b', fontSize: '0.9rem' });
-
-  // Helper để hiển thị trạng thái đẹp mắt
-  const renderStatus = (status) => {
-    if (status === 'PENDING') return <span style={{ background: '#fef3c7', color: '#92400e', padding: '0.25rem 0.75rem', borderRadius: '100px', fontSize: '0.8rem' }}>⏳ Chờ duyệt</span>;
-    if (status === 'APPROVED' || status === 'RESOLVED') return <span style={{ background: '#dcfce7', color: '#166534', padding: '0.25rem 0.75rem', borderRadius: '100px', fontSize: '0.8rem' }}>✅ Đã duyệt</span>;
-    if (status === 'REJECTED') return <span style={{ background: '#fee2e2', color: '#991b1b', padding: '0.25rem 0.75rem', borderRadius: '100px', fontSize: '0.8rem' }}>❌ Bị từ chối</span>;
-    return status;
-  };
+  const todayDay = today.getFullYear() === year && today.getMonth() + 1 === month
+    ? today.getDate() : null;
 
   return (
-    <div style={{ maxWidth: '850px', margin: '0 auto', padding: '1rem' }}>
-      <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem' }}>👋 Chào ngày mới, {user.fullName || user.username}!</h2>
-      
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', backgroundColor: '#f8fafc', padding: '0.5rem', borderRadius: '100px', flexWrap: 'wrap' }}>
-        {['checkin', 'schedule', 'salary', 'incident', 'leave', 'swap'].map(tab => (
-          <button key={tab} style={tabStyle(tab)} onClick={() => setActiveTab(tab)}>
-            {tab === 'checkin' && '⚡ Chấm công'} {tab === 'schedule' && '📅 Lịch'} {tab === 'salary' && '💰 Lương'} {tab === 'incident' && '🚨 Sự cố'} {tab === 'leave' && '📩 Xin nghỉ'} {tab === 'swap' && '🔄 Đổi ca'}
-          </button>
-        ))}
+    <div>
+      <div className="month-nav">
+        <button onClick={prevMonth}>‹</button>
+        <span>{MONTHS_VN[month - 1]} {year}</span>
+        <button onClick={nextMonth}>›</button>
       </div>
 
-      {activeTab === 'checkin' && (
-        <>
-          <div className="card" style={{ marginBottom: '2rem', borderRadius: '24px', padding: '2rem', background: 'linear-gradient(145deg, #ffffff, #f0f4f8)' }}>
-            <h3 style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textTransform: 'uppercase' }}>Ca trực hôm nay</h3>
-            {todayAssignment ? (<><p style={{ fontSize: '1.8rem', fontWeight: 'bold', color: 'var(--primary)', margin: '0.5rem 0' }}>{todayAssignment.shift?.shiftName} ({todayAssignment.shift?.startTime} - {todayAssignment.shift?.endTime})</p><p style={{ color: 'var(--text-main)' }}>Trạng thái: {todayAssignment.status}</p></>) : (<p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>Bạn không có ca trực nào hôm nay.</p>)}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <button onClick={handleCheckIn} disabled={!todayAssignment || status === 'checked-in' || status === 'checked-out' || isLoading} className="btn" style={{ padding: '1.5rem', fontSize: '1.2rem', borderRadius: '100px', backgroundColor: (status === 'checked-in' || status === 'checked-out' || !todayAssignment) ? '#e2e8f0' : 'var(--primary)', color: (status === 'checked-in' || status === 'checked-out' || !todayAssignment) ? '#94a3b8' : 'white' }}>{isLoading && status === '' ? '⏳ ĐANG XỬ LÝ...' : '📍 CHECK-IN NHẬN CA'}</button>
-            <button onClick={handleCheckOut} disabled={status !== 'checked-in' || isLoading} className="btn" style={{ padding: '1.5rem', fontSize: '1.2rem', borderRadius: '100px', backgroundColor: status === 'checked-in' ? '#ef4444' : '#fee2e2', color: status === 'checked-in' ? 'white' : '#fca5a5' }}>{isLoading && status === 'checked-in' ? '⏳ ĐANG XỬ LÝ...' : '🏁 CHECK-OUT KẾT THÚC'}</button>
-          </div>
-          {message && (<div style={{ marginTop: '2rem', padding: '1rem', borderRadius: '16px', backgroundColor: status === 'checked-in' ? '#f0fdf4' : '#f8fafc', color: status === 'checked-in' ? '#166534' : '#334155', textAlign: 'center', fontWeight: '500' }}><div>{message}</div>{penaltyInfo && <div style={{ marginTop: '0.75rem', padding: '0.75rem', borderRadius: '12px', backgroundColor: penaltyInfo.includes('Phạt') ? '#fef2f2' : '#ecfdf5', color: penaltyInfo.includes('Phạt') ? '#991b1b' : '#065f46', fontSize: '0.95rem' }}>{penaltyInfo}</div>}</div>)}
-        </>
-      )}
-
-      {activeTab === 'schedule' && (
-        <div className="card" style={{ borderRadius: '24px', padding: '2rem' }}>
-          <h3 style={{ marginBottom: '1.5rem' }}>📅 Lịch làm việc của tôi</h3>
-          {schedule.length > 0 ? (<table style={{ width: '100%', borderCollapse: 'collapse' }}><thead><tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}><th style={{ padding: '0.75rem', color: '#64748b' }}>Ngày</th><th style={{ padding: '0.75rem', color: '#64748b' }}>Ca</th><th style={{ padding: '0.75rem', color: '#64748b' }}>Thời gian</th><th style={{ padding: '0.75rem', color: '#64748b' }}>Trạng thái</th></tr></thead><tbody>{schedule.map((item, i) => (<tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}><td style={{ padding: '1rem 0.75rem' }}>{item.workDate}</td><td style={{ padding: '1rem 0.75rem', fontWeight: 'bold' }}>{item.shift?.shiftName}</td><td style={{ padding: '1rem 0.75rem' }}>{item.shift?.startTime} - {item.shift?.endTime}</td><td style={{ padding: '1rem 0.75rem' }}>{renderStatus(item.status)}</td></tr>))}</tbody></table>) : <p style={{ color: '#94a3b8' }}>Chưa có lịch.</p>}
+      {loading ? (
+        <div className="loading">Đang tải lịch...</div>
+      ) : (
+        <div className="schedule-grid">
+          {DAYS.map(d => <div key={d} className="day-header">{d}</div>)}
+          {cells.map((day, i) => {
+            if (!day) return <div key={`e-${i}`} className="day-cell empty" />;
+            const hasShift = getAssignmentForDay(day);
+            return (
+              <div
+                key={day}
+                className={[
+                  "day-cell",
+                  hasShift ? "has-shift" : "",
+                  day === todayDay ? "today" : "",
+                  day === selectedDay ? "selected" : "",
+                ].join(" ")}
+                onClick={() => handleDayClick(day)}
+              >
+                <span className="day-num">{day}</span>
+                {hasShift && (
+                  <span className="day-shift">
+                    {hasShift.shift?.shiftName || "Ca"}
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {activeTab === 'salary' && (
-        <div className="card" style={{ borderRadius: '24px', padding: '2rem' }}>
-          <h3 style={{ marginBottom: '1.5rem' }}>💰 Bảng lương</h3>
-          {salary ? (<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1.5rem' }}><div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '16px', textAlign: 'center' }}><p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Số ca</p><h2 style={{ color: 'var(--primary)', margin: 0 }}>{salary.completedShifts}</h2></div><div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '16px', textAlign: 'center' }}><p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Lương ca</p><h2 style={{ color: '#10b981', margin: 0 }}>{salary.totalShiftPay?.toLocaleString('vi-VN')}đ</h2></div><div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '16px', textAlign: 'center' }}><p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Phạt</p><h2 style={{ color: '#ef4444', margin: 0 }}>-{salary.totalPenalty?.toLocaleString('vi-VN')}đ</h2></div><div style={{ background: 'var(--primary)', padding: '1.5rem', borderRadius: '16px', textAlign: 'center', color: 'white' }}><p style={{ fontSize: '0.85rem', marginBottom: '0.5rem', opacity: 0.8 }}>THỰC NHẬN</p><h2 style={{ margin: 0 }}>{salary.finalSalary?.toLocaleString('vi-VN')}đ</h2></div></div>) : <p style={{ color: '#94a3b8' }}>Chưa có dữ liệu.</p>}
-        </div>
-      )}
+      {selectedDay && (
+        <div className="shift-detail">
+          <h4>📋 Chi tiết ngày {selectedDay}/{month}/{year}</h4>
+          <Alert msg={msg.text} type={msg.type} />
 
-      {activeTab === 'incident' && (
-        <div className="card" style={{ borderRadius: '24px', padding: '2rem' }}>
-          <h3 style={{ marginBottom: '1.5rem' }}>🚨 GHI NHẬN SỰ CỐ</h3>
-          <textarea className="form-input" style={{ width: '100%', minHeight: '100px', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1rem', marginBottom: '1rem' }} placeholder="Mô tả sự cố..." value={incidentContent} onChange={(e) => setIncidentContent(e.target.value)} />
-          <button onClick={handleReportIncident} disabled={isLoading} className="btn" style={{ padding: '1rem 2rem', borderRadius: '100px', backgroundColor: '#f59e0b', color: 'white', border: 'none', fontWeight: 'bold' }}>📨 Gửi Biên Bản</button>
-          {incidentMsg && <div style={{ marginTop: '1rem', padding: '1rem', borderRadius: '12px', backgroundColor: incidentMsg.includes('thành công') ? '#f0fdf4' : '#fef2f2', color: incidentMsg.includes('thành công') ? '#166534' : '#991b1b' }}>{incidentMsg}</div>}
-          
-          {/* PHẦN LỊCH SỬ TRẠNG THÁI */}
-          <div style={{ marginTop: '2rem', borderTop: '2px solid #e2e8f0', paddingTop: '1.5rem' }}>
-            <h4 style={{ color: '#64748b', marginBottom: '1rem' }}>LỊCH SỬ SỰ CỐ ĐÃ GỬI</h4>
-            {myIncidents.length === 0 ? <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Bạn chưa gửi sự cố nào.</p> : (
-              myIncidents.map(inc => (
-                <div key={inc.id} style={{ padding: '1rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div><p style={{ margin: 0 }}>{inc.content}</p><p style={{ margin: '5px 0 0', fontSize: '0.8rem', color: '#94a3b8' }}>{new Date(inc.reportTime).toLocaleString('vi-VN')}</p></div>
-                  {renderStatus(inc.status)}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
+          {!selectedAssignment ? (
+            <div className="empty-state" style={{ padding: "20px" }}>
+              Không có ca làm trong ngày này
+            </div>
+          ) : (
+            <>
+              <div className="shift-info-row">
+                <span>Ca làm</span>
+                <span>{selectedAssignment.shift?.shiftName || "—"}</span>
+              </div>
+              <div className="shift-info-row">
+                <span>Giờ bắt đầu</span>
+                <span>{selectedAssignment.shift?.startTime || "—"}</span>
+              </div>
+              <div className="shift-info-row">
+                <span>Giờ kết thúc</span>
+                <span>{selectedAssignment.shift?.endTime || "—"}</span>
+              </div>
+              <div className="shift-info-row">
+                <span>Trạng thái ca</span>
+                <span>
+                  <span className={`badge ${(selectedAssignment.status || "").toLowerCase().replace("_","-")}`}>
+                    {selectedAssignment.status || "ASSIGNED"}
+                  </span>
+                </span>
+              </div>
+              {attendance && (
+                <>
+                  <div className="shift-info-row">
+                    <span>Check in</span>
+                    <span>{fmtDate(attendance.checkInTime)}</span>
+                  </div>
+                  <div className="shift-info-row">
+                    <span>Check out</span>
+                    <span>{fmtDate(attendance.checkOutTime)}</span>
+                  </div>
+                  {attendance.penaltyFee != null && (
+                    <div className="shift-info-row">
+                      <span>Phí phạt</span>
+                      <span style={{ color: "var(--danger)" }}>
+                        {attendance.penaltyFee.toLocaleString("vi-VN")} ₫
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
 
-      {activeTab === 'leave' && (
-        <div className="card" style={{ borderRadius: '24px', padding: '2rem' }}>
-          <h3 style={{ marginBottom: '1.5rem' }}>📩 GỬI ĐƠN XIN NGHỈ PHÉP</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div><label style={{ fontWeight: '600', display: 'block', marginBottom: '0.5rem' }}>Ngày muốn nghỉ</label><input type="date" className="form-input" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ccc' }} value={leaveDate} onChange={(e) => setLeaveDate(e.target.value)} /></div>
-            <div><label style={{ fontWeight: '600', display: 'block', marginBottom: '0.5rem' }}>Lý do</label><textarea className="form-input" style={{ width: '100%', minHeight: '60px', borderRadius: '8px', border: '1px solid #ccc', padding: '0.75rem' }} placeholder="Lý do..." value={leaveReason} onChange={(e) => setLeaveReason(e.target.value)} /></div>
-            <button onClick={handleRequestLeave} disabled={isLoading} className="btn" style={{ padding: '1rem', borderRadius: '100px', backgroundColor: '#3b82f6', color: 'white', border: 'none', fontWeight: 'bold' }}>Gửi Đơn</button>
-          </div>
-          {leaveMsg && <div style={{ marginTop: '1rem', padding: '1rem', borderRadius: '12px', backgroundColor: leaveMsg.includes('thành công') ? '#f0fdf4' : '#fef2f2', color: leaveMsg.includes('thành công') ? '#166534' : '#991b1b' }}>{leaveMsg}</div>}
-          
-          {/* PHẦN LỊCH SỬ TRẠNG THÁI */}
-          <div style={{ marginTop: '2rem', borderTop: '2px solid #e2e8f0', paddingTop: '1.5rem' }}>
-            <h4 style={{ color: '#64748b', marginBottom: '1rem' }}>TRẠNG THÁI ĐƠN XIN NGHỈ</h4>
-            {myRequests.filter(r => r.requestType === 'LEAVE').length === 0 ? <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Chưa có đơn nào.</p> : (
-              myRequests.filter(r => r.requestType === 'LEAVE').map(req => (
-                <div key={req.id} style={{ padding: '1rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div><p style={{ margin: 0 }}>Nghỉ ngày: {req.targetDate} - Lý do: {req.reason}</p></div>
-                  {renderStatus(req.status)}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'swap' && (
-        <div className="card" style={{ borderRadius: '24px', padding: '2rem' }}>
-          <h3 style={{ marginBottom: '1.5rem' }}>🔄 GỬI ĐƠN XIN ĐỔI CA</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div><label style={{ fontWeight: '600', display: 'block', marginBottom: '0.5rem' }}>Ngày cần đổi ca</label><input type="date" className="form-input" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ccc' }} value={swapDate} onChange={(e) => setSwapDate(e.target.value)} /></div>
-            <div><label style={{ fontWeight: '600', display: 'block', marginBottom: '0.5rem' }}>ID Nhân viên thay thế</label><input type="number" className="form-input" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ccc' }} placeholder="Nhập ID..." value={swapUserId} onChange={(e) => setSwapUserId(e.target.value)} /></div>
-            <div><label style={{ fontWeight: '600', display: 'block', marginBottom: '0.5rem' }}>Lý do</label><textarea className="form-input" style={{ width: '100%', minHeight: '60px', borderRadius: '8px', border: '1px solid #ccc', padding: '0.75rem' }} placeholder="Lý do..." value={swapReason} onChange={(e) => setSwapReason(e.target.value)} /></div>
-            <button onClick={handleRequestSwap} disabled={isLoading} className="btn" style={{ padding: '1rem', borderRadius: '100px', backgroundColor: '#8b5cf6', color: 'white', border: 'none', fontWeight: 'bold' }}>Gửi Yêu Cầu</button>
-          </div>
-          {swapMsg && <div style={{ marginTop: '1rem', padding: '1rem', borderRadius: '12px', backgroundColor: swapMsg.includes('thành công') ? '#f0fdf4' : '#fef2f2', color: swapMsg.includes('thành công') ? '#166534' : '#991b1b' }}>{swapMsg}</div>}
-          
-          {/* PHẦN LỊCH SỬ TRẠNG THÁI */}
-          <div style={{ marginTop: '2rem', borderTop: '2px solid #e2e8f0', paddingTop: '1.5rem' }}>
-            <h4 style={{ color: '#64748b', marginBottom: '1rem' }}>TRẠNG THÁI ĐƠN XIN ĐỔI CA</h4>
-            {myRequests.filter(r => r.requestType === 'SHIFT_SWAP').length === 0 ? <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Chưa có đơn nào.</p> : (
-              myRequests.filter(r => r.requestType === 'SHIFT_SWAP').map(req => (
-                <div key={req.id} style={{ padding: '1rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div><p style={{ margin: 0 }}>Đổi ca ngày: {req.targetDate} - Nhân viên thay thế: {req.substituteUser?.fullName}</p></div>
-                  {renderStatus(req.status)}
-                </div>
-              ))
-            )}
-          </div>
+              <div className="check-btns">
+                <button
+                  className="btn-checkin"
+                  onClick={handleCheckIn}
+                  disabled={!!(attendance?.checkInTime)}
+                >
+                  ✅ Check In
+                </button>
+                <button
+                  className="btn-checkout"
+                  onClick={handleCheckOut}
+                  disabled={!(attendance?.checkInTime) || !!(attendance?.checkOutTime)}
+                >
+                  🏁 Check Out
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
   );
-};
-export default StaffDashboard;
+}
+
+// ─── SECTION: ĐƠN XIN NGHỈ / ĐỔI CA ──────────────────────
+function RequestSection({ user }) {
+  const [requests, setRequests] = useState([]);
+  const [allStaff, setAllStaff] = useState([]);
+  const [form, setForm] = useState({
+    requestType: "LEAVE",
+    targetDate: "",
+    reason: "",
+    substituteUserId: "",
+  });
+  const [msg, setMsg] = useState({ text: "", type: "" });
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/staff/${user.id}/requests`);
+      const data = await res.json();
+      setRequests(Array.isArray(data) ? data : []);
+    } catch { setRequests([]); }
+  }, [user.id]);
+
+  useEffect(() => {
+    load();
+    fetch(`${API}/staff/all-staff`)
+      .then(r => r.json())
+      .then(d => setAllStaff(Array.isArray(d) ? d.filter(s => s.id !== user.id) : []))
+      .catch(() => setAllStaff([]));
+  }, [user.id, load]);
+
+  const handleSubmit = async () => {
+    if (!form.targetDate || !form.reason.trim()) {
+      setMsg({ text: "Vui lòng điền đầy đủ ngày và lý do!", type: "error" });
+      return;
+    }
+    setLoading(true);
+    try {
+      const body = { userId: user.id, ...form };
+      if (form.requestType !== "SHIFT_SWAP") delete body.substituteUserId;
+      const res = await fetch(`${API}/staff/request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("Gửi đơn thất bại");
+      setMsg({ text: "✅ Gửi đơn thành công!", type: "success" });
+      setForm({ requestType: "LEAVE", targetDate: "", reason: "", substituteUserId: "" });
+      load();
+    } catch (e) {
+      setMsg({ text: e.message, type: "error" });
+    }
+    setLoading(false);
+  };
+
+  const handleCancel = async (id) => {
+    if (!confirm("Hủy đơn này?")) return;
+    try {
+      const res = await fetch(`${API}/staff/request/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Lỗi hủy đơn");
+      setMsg({ text: `✅ ${data.message}`, type: "success" });
+      load();
+    } catch (e) {
+      setMsg({ text: e.message, type: "error" });
+    }
+  };
+
+  return (
+    <div>
+      <Alert msg={msg.text} type={msg.type} />
+
+      {/* Form gửi đơn */}
+      <div className="card">
+        <div className="card-title">📝 Gửi đơn mới</div>
+        <div className="form-group">
+          <label>Loại đơn</label>
+          <select value={form.requestType} onChange={e => setForm({ ...form, requestType: e.target.value })}>
+            <option value="LEAVE">Nghỉ phép</option>
+            <option value="SHIFT_SWAP">Đổi ca</option>
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Ngày xin nghỉ / đổi ca</label>
+          <input
+            type="date"
+            value={form.targetDate}
+            onChange={e => setForm({ ...form, targetDate: e.target.value })}
+          />
+        </div>
+        {form.requestType === "SHIFT_SWAP" && (
+          <div className="form-group">
+            <label>Người trực thay</label>
+            <select
+              value={form.substituteUserId}
+              onChange={e => setForm({ ...form, substituteUserId: e.target.value })}
+            >
+              <option value="">-- Chọn nhân viên --</option>
+              {allStaff.map(s => (
+                <option key={s.id} value={s.id}>{s.fullName} ({s.username})</option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div className="form-group">
+          <label>Lý do</label>
+          <textarea
+            value={form.reason}
+            onChange={e => setForm({ ...form, reason: e.target.value })}
+            placeholder="Nhập lý do..."
+          />
+        </div>
+        <button className="btn-primary" onClick={handleSubmit} disabled={loading}>
+          {loading ? "Đang gửi..." : "Gửi đơn"}
+        </button>
+      </div>
+
+      {/* Danh sách đơn */}
+      <div className="card">
+        <div className="card-title">📋 Đơn đã gửi</div>
+        {requests.length === 0 ? (
+          <div className="empty-state">
+            <div className="emoji">📭</div>
+            Chưa có đơn nào
+          </div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Loại</th>
+                  <th>Ngày</th>
+                  <th>Lý do</th>
+                  <th>Người thay</th>
+                  <th>Trạng thái</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {requests.map(r => (
+                  <tr key={r.id}>
+                    <td>{r.requestType === "LEAVE" ? "Nghỉ phép" : "Đổi ca"}</td>
+                    <td>{r.targetDate}</td>
+                    <td style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {r.reason}
+                    </td>
+                    <td>{r.substituteUser ? r.substituteUser.fullName : "—"}</td>
+                    <td>
+                      <span className={`badge ${r.status?.toLowerCase()}`}>
+                        {r.status === "PENDING" ? "Chờ duyệt"
+                          : r.status === "APPROVED" ? "Đã duyệt"
+                          : "Từ chối"}
+                      </span>
+                    </td>
+                    <td>
+                      {r.status === "PENDING" && (
+                        <button className="btn-cancel" onClick={() => handleCancel(r.id)}>
+                          Hủy
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── SECTION: BÁO CÁO SỰ CỐ ───────────────────────────────
+function IncidentSection({ user }) {
+  const [incidents, setIncidents] = useState([]);
+  const [content, setContent] = useState("");
+  const [msg, setMsg] = useState({ text: "", type: "" });
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/staff/${user.id}/incidents`);
+      const data = await res.json();
+      setIncidents(Array.isArray(data) ? data : []);
+    } catch { setIncidents([]); }
+  }, [user.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleSubmit = async () => {
+    if (!content.trim()) {
+      setMsg({ text: "Vui lòng nhập nội dung sự cố!", type: "error" });
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/staff/incident`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id, content }),
+      });
+      if (!res.ok) throw new Error("Gửi báo cáo thất bại");
+      setMsg({ text: "✅ Báo cáo sự cố đã được gửi!", type: "success" });
+      setContent("");
+      load();
+    } catch (e) {
+      setMsg({ text: e.message, type: "error" });
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div>
+      <Alert msg={msg.text} type={msg.type} />
+
+      <div className="card">
+        <div className="card-title">🚨 Báo cáo sự cố mới</div>
+        <div className="form-group">
+          <label>Nội dung sự cố</label>
+          <textarea
+            value={content}
+            onChange={e => setContent(e.target.value)}
+            placeholder="Mô tả sự cố: mất thẻ, không đủ chỗ, hỏng thiết bị..."
+            style={{ minHeight: 100 }}
+          />
+        </div>
+        <button className="btn-primary" onClick={handleSubmit} disabled={loading}>
+          {loading ? "Đang gửi..." : "🚨 Gửi báo cáo"}
+        </button>
+      </div>
+
+      <div className="card">
+        <div className="card-title">📋 Sự cố đã báo cáo</div>
+        {incidents.length === 0 ? (
+          <div className="empty-state">
+            <div className="emoji">✅</div>
+            Chưa có sự cố nào được báo cáo
+          </div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Thời gian báo cáo</th>
+                  <th>Nội dung</th>
+                  <th>Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody>
+                {incidents.map(inc => (
+                  <tr key={inc.id}>
+                    <td style={{ whiteSpace: "nowrap" }}>{fmtDate(inc.reportTime)}</td>
+                    <td>{inc.content}</td>
+                    <td>
+                      <span className={`badge ${inc.status?.toLowerCase()}`}>
+                        {inc.status === "PENDING" ? "Chờ xử lý" : "Đã xử lý"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── SECTION: BÀN GIAO CA ─────────────────────────────────
+function HandoverSection({ user }) {
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [colleagues, setColleagues] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState({ text: "", type: "" });
+
+  const loadColleagues = async () => {
+    if (!date) return;
+    setLoading(true);
+    setMsg({ text: "", type: "" });
+    try {
+      const res = await fetch(`${API}/staff/colleagues?date=${date}`);
+      const data = await res.json();
+      setColleagues(Array.isArray(data) ? data.filter(c => c.id !== user.id) : []);
+      if (!Array.isArray(data) || data.filter(c => c.id !== user.id).length === 0) {
+        setMsg({ text: "Không có nhân viên nào làm cùng ngày này", type: "error" });
+      }
+    } catch {
+      setColleagues([]);
+      setMsg({ text: "Lỗi tải dữ liệu", type: "error" });
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div>
+      <div className="card">
+        <div className="card-title">🤝 Bàn giao ca</div>
+        <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
+          Xem danh sách đồng nghiệp làm cùng ca để bàn giao công việc.
+        </p>
+        <Alert msg={msg.text} type={msg.type} />
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-end", marginBottom: 16 }}>
+          <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+            <label>Chọn ngày</label>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} />
+          </div>
+          <button className="btn-primary" onClick={loadColleagues} disabled={loading}>
+            {loading ? "Đang tải..." : "Xem"}
+          </button>
+        </div>
+
+        {colleagues.length > 0 && (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Họ tên</th>
+                  <th>Tài khoản</th>
+                  <th>Ca làm</th>
+                  <th>Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody>
+                {colleagues.map(c => (
+                  <tr key={c.id}>
+                    <td><strong>{c.fullName}</strong></td>
+                    <td style={{ color: "var(--text-muted)" }}>{c.username}</td>
+                    <td>{c.workShift || "—"}</td>
+                    <td>
+                      <span className={`badge ${c.status?.toLowerCase()}`}>
+                        {c.status === "ACTIVE" ? "Đang làm"
+                          : c.status === "ON_LEAVE" ? "Nghỉ phép"
+                          : c.status || "—"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── TỔNG HỢP: DASHBOARD ──────────────────────────────────
+export default function StaffDashboard({ user, onLogout }) {
+  const [tab, setTab] = useState("schedule");
+  const [requests, setRequests] = useState([]);
+  const [incidents, setIncidents] = useState([]);
+
+  // Load thống kê nhanh
+  useEffect(() => {
+    fetch(`${API}/staff/${user.id}/requests`)
+      .then(r => r.json()).then(d => setRequests(Array.isArray(d) ? d : [])).catch(() => {});
+    fetch(`${API}/staff/${user.id}/incidents`)
+      .then(r => r.json()).then(d => setIncidents(Array.isArray(d) ? d : [])).catch(() => {});
+  }, [user.id]);
+
+  const pendingRequests = requests.filter(r => r.status === "PENDING").length;
+  const pendingIncidents = incidents.filter(i => i.status === "PENDING").length;
+
+  const navItems = [
+    { id: "schedule", icon: "📅", label: "Lịch làm việc" },
+    { id: "requests", icon: "📝", label: "Đơn xin nghỉ/Đổi ca" },
+    { id: "incidents", icon: "🚨", label: "Báo cáo sự cố" },
+    { id: "handover", icon: "🤝", label: "Bàn giao ca" },
+  ];
+
+  const pageTitles = {
+    schedule:  { title: "Lịch làm việc",        sub: "Xem lịch và chấm công của bạn" },
+    requests:  { title: "Đơn xin nghỉ / Đổi ca", sub: "Gửi và theo dõi trạng thái đơn" },
+    incidents: { title: "Báo cáo sự cố",         sub: "Mất thẻ, không đủ chỗ, hỏng thiết bị..." },
+    handover:  { title: "Bàn giao ca",           sub: "Xem đồng nghiệp cùng ca" },
+  };
+
+  return (
+    <div className="staff-layout">
+      {/* Sidebar */}
+      <aside className="sidebar">
+        <div className="sidebar-logo">
+          <h2>🚗 NhàXe</h2>
+          <p>Hệ thống quản lý</p>
+        </div>
+        <nav className="sidebar-nav">
+          {navItems.map(item => (
+            <button
+              key={item.id}
+              className={`nav-item ${tab === item.id ? "active" : ""}`}
+              onClick={() => setTab(item.id)}
+            >
+              <span className="icon">{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-user">
+          <div className="name">{user.fullName}</div>
+          <span className="role-badge">Nhân viên</span>
+        </div>
+        <button className="btn-logout" onClick={onLogout}>Đăng xuất</button>
+      </aside>
+
+      {/* Main */}
+      <main className="main-content">
+        <div className="page-header">
+          <h1>{pageTitles[tab].title}</h1>
+          <p>{pageTitles[tab].sub}</p>
+        </div>
+
+        {/* Stat cards chỉ hiển thị ở trang chủ (schedule) */}
+        {tab === "schedule" && (
+          <div className="stat-grid">
+            <div className="stat-card">
+              <div className="stat-icon blue">📝</div>
+              <div>
+                <div className="stat-label">Đơn chờ duyệt</div>
+                <div className="stat-value">{pendingRequests}</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon yellow">🚨</div>
+              <div>
+                <div className="stat-label">Sự cố chờ xử lý</div>
+                <div className="stat-value">{pendingIncidents}</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon green">👤</div>
+              <div>
+                <div className="stat-label">Nhân viên</div>
+                <div className="stat-value" style={{ fontSize: 14 }}>{user.fullName}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="card">
+          {tab === "schedule"  && <ScheduleSection user={user} />}
+          {tab === "requests"  && <RequestSection user={user} />}
+          {tab === "incidents" && <IncidentSection user={user} />}
+          {tab === "handover"  && <HandoverSection user={user} />}
+        </div>
+      </main>
+    </div>
+  );
+}

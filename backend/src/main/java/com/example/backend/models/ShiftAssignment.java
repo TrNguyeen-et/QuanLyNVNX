@@ -5,6 +5,7 @@ import java.time.LocalDate;
 
 @Entity
 @Table(name = "shift_assignments")
+@SuppressWarnings("null")
 public class ShiftAssignment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -20,45 +21,24 @@ public class ShiftAssignment {
 
     private LocalDate workDate; 
     private String status; 
+    private String position; // THÊM MỚI: Vị trí phân công (VD: KIEM_SOAT_VE, XEP_XE)
 
-    // --- GETTER VÀ SETTER THỦ CÔNG ---
-    public Long getId() {
-        return id;
-    }
+    // --- GETTER VÀ SETTER ---
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public User getUser() { return user; }
+    public void setUser(User user) { this.user = user; }
 
-    public User getUser() {
-        return user;
-    }
+    public Shift getShift() { return shift; }
+    public void setShift(Shift shift) { this.shift = shift; }
 
-    public void setUser(User user) {
-        this.user = user;
-    }
+    public LocalDate getWorkDate() { return workDate; }
+    public void setWorkDate(LocalDate workDate) { this.workDate = workDate; }
 
-    public Shift getShift() {
-        return shift;
-    }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 
-    public void setShift(Shift shift) {
-        this.shift = shift;
-    }
-
-    public LocalDate getWorkDate() {
-        return workDate;
-    }
-
-    public void setWorkDate(LocalDate workDate) {
-        this.workDate = workDate;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
+    public String getPosition() { return position; }
+    public void setPosition(String position) { this.position = position; }
 }

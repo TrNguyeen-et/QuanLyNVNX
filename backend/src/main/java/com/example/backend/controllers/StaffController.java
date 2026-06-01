@@ -2,111 +2,167 @@ package com.example.backend.controllers;
 
 import com.example.backend.models.*;
 import com.example.backend.repositories.*;
+import com.example.backend.services.AttendanceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
-import java.time.Duration;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.*;
 
 @RestController
 @RequestMapping("/api/staff")
-@CrossOrigin("*")
+@CrossOrigin(origins = "*")
+@SuppressWarnings("null")
 public class StaffController {
 
     @Autowired private UserRepository userRepository;
     @Autowired private ShiftAssignmentRepository shiftAssignmentRepository;
     @Autowired private AttendanceRepository attendanceRepository;
-    @Autowired private IncidentRepository incidentRepository;
     @Autowired private LeaveRequestRepository leaveRequestRepository;
+    @Autowired private IncidentRepository incidentRepository;
+    @Autowired private AttendanceService attendanceService;
 
     @GetMapping("/{userId}/schedule")
-    public List<ShiftAssignment> getMySchedule(@PathVariable long userId) {
-        User staff = userRepository.findById(userId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"));
-        return shiftAssignmentRepository.findByUser(staff);
+    public List<ShiftAssignment> getSchedule(
+            @PathVariable Long userId,
+            @RequestParam(required = false) String month) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy nhân viên"));
+
+        List<ShiftAssignment> assignments = shiftAssignmentRepository.findByUser(user);
+
+        if (month != null && !month.isEmpty()) {
+            String[] parts = month.split("-");
+            int year = Integer.parseInt(parts[0]);
+            int mon  = Integer.parseInt(parts[1]);
+            assignments = assignments.stream()
+                    .filter(a -> a.getWorkDate().getYear() == year && a.getWorkDate().getMonthValue() == mon)
+                    .collect(java.util.stream.Collectors.toList());
+        }
+        return assignments;
     }
 
-    @PostMapping("/check-in")
-    public Map<String, Object> checkIn(@RequestBody Map<String, Object> data) {
-        long assignmentId = Long.parseLong(data.get("assignmentId").toString());
-        ShiftAssignment assignment = shiftAssignmentRepository.findById(assignmentId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"));
-        LocalDateTime now = LocalDateTime.now();
-        LocalTime actualTime = now.toLocalTime();
-        LocalTime shiftStart = assignment.getShift().getStartTime();
+    @PostMapping("/checkin")
+    public Map<String, Object> checkIn(@RequestBody Map<String, Long> body) {
+        Long assignmentId = body.getOrDefault("assignmentId", null);
+        return attendanceService.processCheckIn(assignmentId);
+    }
 
-        Attendance att = new Attendance();
-        att.setShiftAssignment(assignment);
-        att.setCheckInTime(now);
+    @PostMapping("/checkout")
+    public Map<String, Object> checkOut(@RequestBody Map<String, Long> body) {
+        Long assignmentId = body.getOrDefault("assignmentId", null);
+        return attendanceService.processCheckOut(assignmentId);
+    }
 
-        long minutesLate = Duration.between(shiftStart, actualTime).toMinutes();
-        double penalty = 0.0; String status = "ON_TIME";
-        if (minutesLate > 0) { status = "LATE"; if (minutesLate < 15) penalty = 20000; else if (minutesLate <= 30) penalty = 50000; else penalty = 100000; }
-        
-        att.setPenaltyFee(penalty); att.setStatus(status);
-        attendanceRepository.save(att);
-        assignment.setStatus(status); shiftAssignmentRepository.save(assignment);
+    @GetMapping("/attendance/{assignmentId}")
+    public Attendance getAttendance(@PathVariable Long assignmentId) {
+        ShiftAssignment assignment = shiftAssignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy ca làm"));
+        Attendance attendance = attendanceRepository.findByShiftAssignment(assignment);
+        if (attendance == null)
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Chưa có dữ liệu chấm công");
+        return attendance;
+    }
 
-        Map<String, Object> res = new HashMap<>();
-        res.put("status", "success"); res.put("message", "Check-in thanh cong!"); res.put("minutesLate", minutesLate > 0 ? minutesLate : 0); res.put("penaltyFee", penalty);
+    @PostMapping("/handover")
+    public Map<String, String> confirmHandover(@RequestBody Map<String, Long> body) {
+        Long assignmentId = body.getOrDefault("assignmentId", null);
+        if (assignmentId == null)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thiếu mã ca làm việc!");
+
+        ShiftAssignment assignment = shiftAssignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy ca làm"));
+
+        assignment.setStatus("HANDED_OVER");
+        shiftAssignmentRepository.save(assignment);
+
+        Map<String, String> res = new HashMap<>();
+        res.put("message", "Xác nhận bàn giao ca thành công! Bạn có thể check-out.");
         return res;
     }
 
-    @PostMapping("/check-out")
-    public Map<String, Object> checkOut(@RequestBody Map<String, Object> data) {
-        long assignmentId = Long.parseLong(data.get("assignmentId").toString());
-        ShiftAssignment assignment = shiftAssignmentRepository.findById(assignmentId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"));
-        Attendance att = attendanceRepository.findByShiftAssignment(assignment);
-        if (att == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chua check-in");
-        att.setCheckOutTime(LocalDateTime.now()); attendanceRepository.save(att);
-        assignment.setStatus("COMPLETED"); shiftAssignmentRepository.save(assignment);
-        Map<String, Object> res = new HashMap<>(); res.put("status", "success"); res.put("message", "Check-out thanh cong!"); return res;
+    @GetMapping("/{userId}/requests")
+    public List<LeaveRequest> getMyRequests(@PathVariable Long userId) {
+        return leaveRequestRepository.findByUser_Id(userId);
     }
 
-    @GetMapping("/{userId}/my-salary")
-    public Map<String, Object> getMySalary(@PathVariable long userId) {
-        User staff = userRepository.findById(userId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"));
-        List<ShiftAssignment> assignments = shiftAssignmentRepository.findByUser(staff);
-        double totalPay = 0, totalPenalty = 0; int shifts = 0;
-        for (ShiftAssignment a : assignments) {
-            if ("COMPLETED".equals(a.getStatus())) {
-                shifts++;
-                if (a.getShift() != null && a.getShift().getShiftPrice() != null) totalPay += a.getShift().getShiftPrice();
-                Attendance att = attendanceRepository.findByShiftAssignment(a);
-                if (att != null && att.getPenaltyFee() != null) totalPenalty += att.getPenaltyFee();
-            }
+    @PostMapping("/request")
+    public LeaveRequest submitRequest(@RequestBody Map<String, Object> body) {
+        Long userId = Long.valueOf(body.get("userId").toString());
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy nhân viên"));
+
+        LeaveRequest req = new LeaveRequest();
+        req.setUser(user);
+        req.setRequestType(body.get("requestType").toString());
+        req.setTargetDate(LocalDate.parse(body.get("targetDate").toString()));
+        req.setReason(body.get("reason").toString());
+        req.setStatus("PENDING");
+
+        if ("LEAVE".equals(req.getRequestType()) && !req.getTargetDate().isAfter(LocalDate.now()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Vi phạm QLNX_QĐ 2: Xin nghỉ phép phải báo trước ít nhất 24 tiếng!");
+
+        if ("SHIFT_SWAP".equals(req.getRequestType()) && body.get("substituteUserId") != null) {
+            Long subId = Long.valueOf(body.get("substituteUserId").toString());
+            userRepository.findById(subId).ifPresent(req::setSubstituteUser);
         }
-        Map<String, Object> sal = new HashMap<>(); sal.put("fullName", staff.getFullName()); sal.put("completedShifts", shifts); sal.put("totalShiftPay", totalPay); sal.put("totalPenalty", totalPenalty); sal.put("finalSalary", totalPay - totalPenalty);
-        return sal;
+        return leaveRequestRepository.save(req);
     }
 
-    @PostMapping("/report-incident")
-    public Map<String, String> reportIncident(@RequestBody Map<String, String> data) {
-        Long userId = Long.parseLong(data.get("userId")); String content = data.get("content");
-        if (content == null || content.trim().isEmpty()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Empty");
-        Incident inc = new Incident(); inc.setUserId(userId); inc.setContent(content); inc.setReportTime(LocalDateTime.now()); inc.setStatus("PENDING");
-        incidentRepository.save(inc);
-        Map<String, String> res = new HashMap<>(); res.put("message", "Thanh cong!"); return res;
+    @DeleteMapping("/request/{id}")
+    public Map<String, String> cancelRequest(@PathVariable Long id) {
+        LeaveRequest req = leaveRequestRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn"));
+        if (!"PENDING".equals(req.getStatus()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chỉ có thể hủy đơn đang chờ duyệt!");
+        leaveRequestRepository.deleteById(id);
+        Map<String, String> res = new HashMap<>();
+        res.put("message", "Hủy đơn thành công!");
+        return res;
     }
 
-    @PostMapping("/request-leave")
-    public Map<String, String> requestLeave(@RequestBody Map<String, String> data) {
-        User u = userRepository.findById(Long.parseLong(data.get("userId"))).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"));
-        LeaveRequest r = new LeaveRequest(); r.setUser(u); r.setRequestType("LEAVE"); r.setTargetDate(java.time.LocalDate.parse(data.get("targetDate"))); r.setReason(data.get("reason")); r.setStatus("PENDING");
-        leaveRequestRepository.save(r);
-        Map<String, String> res = new HashMap<>(); res.put("message", "Thanh cong!"); return res;
+    @GetMapping("/{userId}/incidents")
+    public List<Incident> getMyIncidents(@PathVariable Long userId) {
+        return incidentRepository.findByUserId(userId);
     }
 
-    @PostMapping("/request-swap")
-    public Map<String, String> requestSwap(@RequestBody Map<String, String> data) {
-        User u = userRepository.findById(Long.parseLong(data.get("userId"))).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"));
-        User sub = userRepository.findById(Long.parseLong(data.get("substituteUserId"))).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"));
-        LeaveRequest r = new LeaveRequest(); r.setUser(u); r.setSubstituteUser(sub); r.setRequestType("SHIFT_SWAP"); r.setTargetDate(java.time.LocalDate.parse(data.get("targetDate"))); r.setReason(data.get("reason")); r.setStatus("PENDING");
-        leaveRequestRepository.save(r);
-        Map<String, String> res = new HashMap<>(); res.put("message", "Thanh cong!"); return res;
+    @PostMapping("/incident")
+    public Incident reportIncident(@RequestBody Map<String, Object> body) {
+        Long userId = Long.valueOf(body.get("userId").toString());
+        userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy nhân viên"));
+        Incident incident = new Incident();
+        incident.setUserId(userId);
+        incident.setContent(body.get("content").toString());
+        incident.setReportTime(LocalDateTime.now());
+        incident.setStatus("PENDING");
+        return incidentRepository.save(incident);
     }
 
-    @GetMapping("/{userId}/my-requests") public List<LeaveRequest> getMyRequests(@PathVariable long userId) { return leaveRequestRepository.findByUserId(userId); }
-    @GetMapping("/{userId}/my-incidents") public List<Incident> getMyIncidents(@PathVariable long userId) { return incidentRepository.findByUserId(userId); }
+    @GetMapping("/colleagues")
+    public List<User> getColleagues(@RequestParam String date) {
+        LocalDate workDate = LocalDate.parse(date);
+        List<ShiftAssignment> assignments = shiftAssignmentRepository.findByWorkDate(workDate);
+        List<User> colleagues = new ArrayList<>();
+        for (ShiftAssignment a : assignments) {
+            if (!colleagues.contains(a.getUser())) colleagues.add(a.getUser());
+        }
+        return colleagues;
+    }
+
+    @GetMapping("/user/{id}")
+    public User getUser(@PathVariable Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy nhân viên"));
+    }
+
+    @GetMapping("/all-staff")
+    public List<User> getAllStaff() {
+        return userRepository.findByRole("STAFF");
+    }
 }
