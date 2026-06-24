@@ -1,0 +1,14 @@
+C:\Users\Egoisticus\Documents\Learning\cnpm\QuanLyNVNX\backend\src\main\java\com\example\backend\BackendApplication.java
+C:\Users\Egoisticus\Documents\Learning\cnpm\QuanLyNVNX\backend\src\main\java\com\example\backend\controllers\AdminController.java
+C:\Users\Egoisticus\Documents\Learning\cnpm\QuanLyNVNX\backend\src\main\java\com\example\backend\controllers\ManagerController.java
+C:\Users\Egoisticus\Documents\Learning\cnpm\QuanLyNVNX\backend\src\main\java\com\example\backend\controllers\StaffController.java
+C:\Users\Egoisticus\Documents\Learning\cnpm\QuanLyNVNX\backend\src\main\java\com\example\backend\models\Attendance.java
+C:\Users\Egoisticus\Documents\Learning\cnpm\QuanLyNVNX\backend\src\main\java\com\example\backend\models\LeaveRequest.java
+C:\Users\Egoisticus\Documents\Learning\cnpm\QuanLyNVNX\backend\src\main\java\com\example\backend\models\Shift.java
+C:\Users\Egoisticus\Documents\Learning\cnpm\QuanLyNVNX\backend\src\main\java\com\example\backend\models\ShiftAssignment.java
+C:\Users\Egoisticus\Documents\Learning\cnpm\QuanLyNVNX\backend\src\main\java\com\example\backend\models\User.java
+C:\Users\Egoisticus\Documents\Learning\cnpm\QuanLyNVNX\backend\src\main\java\com\example\backend\repositories\AttendanceRepository.java
+C:\Users\Egoisticus\Documents\Learning\cnpm\QuanLyNVNX\backend\src\main\java\com\example\backend\repositories\LeaveRequestRepository.java
+C:\Users\Egoisticus\Documents\Learning\cnpm\QuanLyNVNX\backend\src\main\java\com\example\backend\repositories\ShiftAssignmentRepository.java
+C:\Users\Egoisticus\Documents\Learning\cnpm\QuanLyNVNX\backend\src\main\java\com\example\backend\repositories\ShiftRepository.java
+C:\Users\Egoisticus\Documents\Learning\cnpm\QuanLyNVNX\backend\src\main\java\com\example\backend\repositories\UserRepository.java

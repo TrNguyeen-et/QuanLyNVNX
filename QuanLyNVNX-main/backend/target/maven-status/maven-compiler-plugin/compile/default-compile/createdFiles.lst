@@ -1,0 +1,14 @@
+com\example\backend\models\LeaveRequest.class
+com\example\backend\repositories\ShiftAssignmentRepository.class
+com\example\backend\repositories\UserRepository.class
+com\example\backend\BackendApplication.class
+com\example\backend\models\Shift.class
+com\example\backend\controllers\StaffController.class
+com\example\backend\controllers\ManagerController.class
+com\example\backend\models\User.class
+com\example\backend\repositories\LeaveRequestRepository.class
+com\example\backend\controllers\AdminController.class
+com\example\backend\repositories\ShiftRepository.class
+com\example\backend\models\ShiftAssignment.class
+com\example\backend\repositories\AttendanceRepository.class
+com\example\backend\models\Attendance.class
