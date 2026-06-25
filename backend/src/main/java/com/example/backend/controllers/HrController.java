@@ -6,6 +6,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
+
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/hr") // HR = Phòng Hành Chính
@@ -25,5 +30,19 @@ public class HrController {
             @RequestParam int year,
             @RequestParam int month) {
         return hrService.getMonthlyReport(year, month);
+    }
+
+    @PostMapping("/import-staff")
+    public Map<String, String> importStaff(@RequestParam("file") MultipartFile file) {
+        // Giả định: lấy ID của HR từ token/session, ở đây demo hardcode 1L
+        Long hrId = 1L; // Thay bằng cách lấy từ Authentication
+        try {
+            String message = hrService.importStaffFromExcel(file, hrId);
+            Map<String, String> res = new HashMap<>();
+            res.put("message", message);
+            return res;
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
+        }
     }
 }

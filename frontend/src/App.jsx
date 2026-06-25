@@ -5,6 +5,7 @@ import LoginPage        from "./pages/auth/LoginPage";       // auth - chữ th�
 import StaffDashboard   from "./pages/Staff/StaffDashboard"; // Staff - chữ HOA
 import ManagerDashboard from "./pages/Manager/ManagerDashboard"; // Manager - chữ HOA
 import AdminDashboard   from "./pages/Admin/AdminDashboard"; // Admin - chữ HOA
+import HrDashboard      from "./pages/HR/HrDashboard";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -25,20 +26,7 @@ export default function App() {
     case "STAFF":   return <StaffDashboard   user={user} onLogout={handleLogout} />;
     case "MANAGER": return <ManagerDashboard user={user} onLogout={handleLogout} />;
     case "ADMIN":   return <AdminDashboard   user={user} onLogout={handleLogout} />;
-    case "HR":
-      return (
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
-          minHeight:"100vh", background:"#0f1117", color:"#e8eaf6",
-          fontFamily:"sans-serif", flexDirection:"column", gap:12 }}>
-          <div style={{ fontSize:48 }}>📁</div>
-          <h2>Trang Hành chính đang phát triển</h2>
-          <p style={{ color:"#8b92b5" }}>Xin chào, {user.fullName}</p>
-          <button onClick={handleLogout} style={{ marginTop:16, padding:"8px 20px",
-            background:"#ef4444", color:"#fff", border:"none", borderRadius:8, cursor:"pointer" }}>
-            Đăng xuất
-          </button>
-        </div>
-      );
+    case "HR":      return <HrDashboard      user={user} onLogout={handleLogout} />;
     default:
       return (
         <div style={{ color:"#ef4444", padding:32 }}>

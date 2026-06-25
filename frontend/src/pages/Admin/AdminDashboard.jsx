@@ -103,7 +103,6 @@ function AccountSection() {
     setLoading(true);
     try {
       if (editingId) {
-        // Cập nhật
         const res = await fetch(`${API}/users/${editingId}`, {
           method: "PUT", headers: { "Content-Type": "application/json" },
           body: JSON.stringify(form),
@@ -112,7 +111,6 @@ function AccountSection() {
         if (!res.ok) throw new Error(data.message || "Lỗi cập nhật");
         flashMsg("✅ Cập nhật tài khoản thành công!", "success");
       } else {
-        // Tạo mới
         const res = await fetch(`${API}/create-account`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify(form),
@@ -147,7 +145,6 @@ function AccountSection() {
     <div>
       <Alert msg={msg.text} type={msg.type} />
 
-      {/* Toolbar */}
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
         <input
           style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", padding: "9px 12px", fontSize: 13, fontFamily: "var(--font)", flex: 1, minWidth: 180 }}
@@ -167,7 +164,6 @@ function AccountSection() {
         <button className="btn-primary" onClick={openCreate}>+ Tạo tài khoản</button>
       </div>
 
-      {/* Form tạo / sửa */}
       {showForm && (
         <div className="card" style={{ background: "var(--surface2)", marginBottom: 16, border: "1px solid var(--accent)" }}>
           <div className="card-title">{editingId ? "✏️ Chỉnh sửa tài khoản" : "➕ Tạo tài khoản mới"}</div>
@@ -228,7 +224,6 @@ function AccountSection() {
         </div>
       )}
 
-      {/* Bảng tài khoản */}
       <div className="card">
         <div className="card-title">👥 Danh sách tài khoản ({filtered.length})</div>
         {filtered.length === 0 ? (
@@ -267,7 +262,161 @@ function AccountSection() {
   );
 }
 
-// ── 3. AUDIT LOG ──────────────────────────────────────────
+// ── 3. QUẢN LÝ HỒ SƠ NHẬP TỪ EXCEL ──────────────────────
+function ImportSection() {
+  const [drafts, setDrafts] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState({ text: "", type: "" });
+
+  const loadDrafts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/pending-imports`);
+      const data = await res.json();
+      setDrafts(Array.isArray(data) ? data : []);
+    } catch {
+      setDrafts([]);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadDrafts(); }, [loadDrafts]);
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const toggleAll = () => {
+    if (selectedIds.length === drafts.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(drafts.map(d => d.id));
+    }
+  };
+
+  const handleApprove = async () => {
+    if (selectedIds.length === 0) {
+      setMsg({ text: "Chọn ít nhất một hồ sơ!", type: "error" });
+      return;
+    }
+    if (!confirm(`Duyệt ${selectedIds.length} hồ sơ?`)) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/pending-imports/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(selectedIds),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Lỗi duyệt");
+      setMsg({ text: data.message, type: "success" });
+      setSelectedIds([]);
+      loadDrafts();
+    } catch (e) {
+      setMsg({ text: e.message, type: "error" });
+    }
+    setLoading(false);
+  };
+
+  const handleReject = async () => {
+    if (selectedIds.length === 0) {
+      setMsg({ text: "Chọn ít nhất một hồ sơ!", type: "error" });
+      return;
+    }
+    const reason = prompt("Nhập lý do từ chối (không bắt buộc):");
+    if (reason === null) return;
+    if (!confirm(`Từ chối ${selectedIds.length} hồ sơ?`)) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/pending-imports/reject?reason=${encodeURIComponent(reason || '')}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(selectedIds),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Lỗi từ chối");
+      setMsg({ text: data.message, type: "success" });
+      setSelectedIds([]);
+      loadDrafts();
+    } catch (e) {
+      setMsg({ text: e.message, type: "error" });
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div>
+      <Alert msg={msg.text} type={msg.type} />
+      <div className="card">
+        <div className="card-title">📥 Hồ sơ nhân viên chờ duyệt ({drafts.length})</div>
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
+          <button className="btn-primary" onClick={handleApprove} disabled={loading || selectedIds.length === 0}>
+            ✅ Duyệt đã chọn
+          </button>
+          <button className="btn-danger" onClick={handleReject} disabled={loading || selectedIds.length === 0}>
+            ❌ Từ chối đã chọn
+          </button>
+          <button className="btn-cancel-sm" onClick={loadDrafts} disabled={loading}>
+            🔄 Làm mới
+          </button>
+        </div>
+
+        {drafts.length === 0 ? (
+          <div className="empty-state">
+            <div className="emoji">📭</div>
+            Không có hồ sơ nào đang chờ duyệt.
+          </div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>
+                    <input type="checkbox" checked={selectedIds.length === drafts.length && drafts.length > 0} onChange={toggleAll} />
+                  </th>
+                  <th>ID</th>
+                  <th>Họ tên</th>
+                  <th>Username</th>
+                  <th>Lương</th>
+                  <th>Ca mặc định</th>
+                  <th>Ngày làm</th>
+                  <th>Upload bởi</th>
+                  <th>Thời gian</th>
+                </tr>
+              </thead>
+              <tbody>
+                {drafts.map(d => (
+                  <tr key={d.id}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(d.id)}
+                        onChange={() => toggleSelect(d.id)}
+                      />
+                    </td>
+                    <td>#{d.id}</td>
+                    <td><strong>{d.fullName}</strong></td>
+                    <td>{d.username}</td>
+                    <td>{d.salary ? Number(d.salary).toLocaleString('vi-VN') + ' ₫' : '—'}</td>
+                    <td>{d.workShift || '—'}</td>
+                    <td>{d.workDays || '—'}</td>
+                    <td>#{d.uploadedBy}</td>
+                    <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{fmt(d.uploadedAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── 4. AUDIT LOG ──────────────────────────────────────────
 function LogSection() {
   const [logs, setLogs]     = useState([]);
   const [search, setSearch] = useState("");
@@ -321,10 +470,10 @@ function LogSection() {
   );
 }
 
-// ── 4. CẤU HÌNH HỆ THỐNG ─────────────────────────────────
+// ── 5. CẤU HÌNH HỆ THỐNG ─────────────────────────────────
 function ConfigSection() {
   const [configs, setConfigs] = useState([]);
-  const [editing, setEditing] = useState({}); // { key: newValue }
+  const [editing, setEditing] = useState({});
   const [msg, setMsg] = useState({ text: "", type: "" });
 
   const load = async () => {
@@ -383,7 +532,7 @@ function ConfigSection() {
   );
 }
 
-// ── 5. SAO LƯU & PHỤC HỒI ────────────────────────────────
+// ── 6. SAO LƯU & PHỤC HỒI ────────────────────────────────
 function BackupSection() {
   const [msg, setMsg]       = useState({ text: "", type: "" });
   const [loading, setLoading] = useState(false);
@@ -397,7 +546,6 @@ function BackupSection() {
       const data = await res.json();
       if (!res.ok) throw new Error("Lỗi sao lưu");
 
-      // Tải file JSON về máy
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement("a");
@@ -417,7 +565,7 @@ function BackupSection() {
     setLoading(true);
     try {
       const parsed = JSON.parse(restoreData);
-      const users  = parsed.users || parsed; // hỗ trợ cả backup toàn bộ và chỉ users
+      const users  = parsed.users || parsed;
       const res = await fetch(`${API}/restore`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(users),
@@ -475,17 +623,19 @@ export default function AdminDashboard({ user, onLogout }) {
   const navItems = [
     { id: "overview", icon: "🏠", label: "Tổng quan" },
     { id: "accounts", icon: "👥", label: "Tài khoản" },
+    { id: "imports",  icon: "📥", label: "Duyệt nhân viên" },
     { id: "logs",     icon: "📋", label: "Nhật ký hệ thống" },
     { id: "configs",  icon: "⚙️", label: "Cấu hình" },
     { id: "backup",   icon: "💾", label: "Sao lưu & Phục hồi" },
   ];
 
   const pageTitles = {
-    overview: { title: "Tổng quan hệ thống",      sub: "Chào mừng, " + user.fullName },
-    accounts: { title: "Quản lý tài khoản",        sub: "Thêm, sửa, xóa và cấp quyền tài khoản" },
-    logs:     { title: "Nhật ký hệ thống",         sub: "Ghi lại toàn bộ hành động trong hệ thống" },
-    configs:  { title: "Cấu hình hệ thống",        sub: "Điều chỉnh các tham số như mức phạt, quy tắc..." },
-    backup:   { title: "Sao lưu & Phục hồi",       sub: "Đảm bảo an toàn dữ liệu hệ thống" },
+    overview:  { title: "Tổng quan hệ thống",      sub: "Chào mừng, " + user.fullName },
+    accounts:  { title: "Quản lý tài khoản",        sub: "Thêm, sửa, xóa và cấp quyền tài khoản" },
+    imports:   { title: "Duyệt nhân viên",          sub: "Xem và phê duyệt hồ sơ nhập từ Excel" },
+    logs:      { title: "Nhật ký hệ thống",         sub: "Ghi lại toàn bộ hành động trong hệ thống" },
+    configs:   { title: "Cấu hình hệ thống",        sub: "Điều chỉnh các tham số như mức phạt, quy tắc..." },
+    backup:    { title: "Sao lưu & Phục hồi",       sub: "Đảm bảo an toàn dữ liệu hệ thống" },
   };
 
   return (
@@ -518,6 +668,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
         {tab === "overview" && <OverviewSection />}
         {tab === "accounts" && <AccountSection />}
+        {tab === "imports"  && <ImportSection />}
         {tab === "logs"     && <LogSection />}
         {tab === "configs"  && <ConfigSection />}
         {tab === "backup"   && <BackupSection />}

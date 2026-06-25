@@ -16,6 +16,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.example.backend.models.EmployeeImportDraft;
+
 @RestController
 @RequestMapping("/api/admin")
 @CrossOrigin(origins = "*")
@@ -128,5 +130,29 @@ public class AdminController {
         Map<String, String> res = new HashMap<>();
         res.put("message", message);
         return res;
+    }
+
+    @GetMapping("/pending-imports")
+    public List<EmployeeImportDraft> getPendingImports() {
+        return adminService.getPendingImports();
+    }
+
+    @PostMapping("/pending-imports/approve")
+    public Map<String, Object> approveImports(@RequestBody List<Long> draftIds) {
+        // Giả định adminId từ token
+        Long adminId = 1L; // Thay bằng thực tế
+        int count = adminService.approveImports(draftIds, adminId);
+        Map<String, Object> res = new HashMap<>();
+        res.put("message", "Đã cấp tài khoản thành công cho " + count + " nhân viên.");
+        res.put("approvedCount", count);
+        return res;
+    }
+
+    @PostMapping("/pending-imports/reject")
+    public Map<String, String> rejectImports(@RequestBody List<Long> draftIds,
+                                             @RequestParam(required = false) String reason) {
+        Long adminId = 1L;
+        adminService.rejectImports(draftIds, adminId, reason);
+        return Map.of("message", "Đã từ chối " + draftIds.size() + " hồ sơ.");
     }
 }

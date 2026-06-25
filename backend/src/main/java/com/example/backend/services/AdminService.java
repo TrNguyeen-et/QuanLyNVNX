@@ -15,6 +15,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.example.backend.models.EmployeeImportDraft;
+import java.time.LocalDateTime;
+
+import com.example.backend.repositories.EmployeeImportDraftRepository;
+
 @Service
 @SuppressWarnings("null")
 public class AdminService {
@@ -22,6 +27,7 @@ public class AdminService {
     @Autowired private SystemConfigRepository configRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private AuditLogRepository auditLogRepository;
+    @Autowired private EmployeeImportDraftRepository employeeImportDraftRepository;
 
     // ==================== 1. QUẢN LÝ CẤU HÌNH HỆ THỐNG ====================
     
@@ -74,4 +80,57 @@ public class AdminService {
         userRepository.saveAll(users);
         return "Phục hồi thành công " + users.size() + " tài khoản!";
     }
+
+    // ==================== QUẢN LÝ IMPORT HỒ SƠ ====================
+    public List<EmployeeImportDraft> getPendingImports() {
+        return employeeImportDraftRepository.findByStatus("PENDING");
+    }
+
+    public int approveImports(List<Long> draftIds, Long adminId) {
+        if (draftIds == null || draftIds.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Danh sách ID rỗng");
+        }
+
+        List<EmployeeImportDraft> drafts = employeeImportDraftRepository.findAllById(draftIds);
+        if (drafts.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy hồ sơ nào");
+        }
+
+        int approvedCount = 0;
+        for (EmployeeImportDraft draft : drafts) {
+            if (!"PENDING".equals(draft.getStatus())) continue; // bỏ qua các hồ sơ không chờ
+
+            // Tạo User mới
+            User newUser = new User();
+            newUser.setUsername(draft.getUsername());
+            newUser.setFullName(draft.getFullName());
+            // Mật khẩu mặc định: có thể là username hoặc một giá trị cố định
+            newUser.setPassword(draft.getUsername()); // Nên mã hóa sau
+            newUser.setRole(draft.getRole() != null ? draft.getRole() : "STAFF");
+            newUser.setStatus("ACTIVE");
+            newUser.setSalary(draft.getSalary() != null ? draft.getSalary() : 0.0);
+            newUser.setWorkShift(draft.getWorkShift());
+            newUser.setWorkDays(draft.getWorkDays());
+
+            userRepository.save(newUser);
+
+            // Cập nhật trạng thái draft
+            draft.setStatus("APPROVED");
+            draft.setProcessedBy(adminId);
+            draft.setProcessedAt(LocalDateTime.now());
+            employeeImportDraftRepository.save(draft);
+
+            approvedCount++;
+        }
+
+        // Ghi log audit (nếu muốn)
+        // auditLogRepository.save(...);
+
+        return approvedCount;
+    }
+
+    public void rejectImports(List<Long> draftIds, Long adminId, String reason) {
+        // Tương tự, có thể thêm nếu cần
+    }
 }
+    
