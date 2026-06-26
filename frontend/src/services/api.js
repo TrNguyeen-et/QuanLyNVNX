@@ -8,3 +8,7 @@ const API = axios.create({
 });
 
 export default API;
+// Lấy lương nhân viên theo tháng
+export const getSalary = (userId, year, month) => {
+  return API.get(`/staff/${userId}/salary?year=${year}&month=${month}`);
+};

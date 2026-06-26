@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -165,4 +166,61 @@ public class StaffController {
     public List<User> getAllStaff() {
         return userRepository.findByRole("STAFF");
     }
+    @GetMapping("/{userId}/salary")
+    public Map<String, Object> getMySalary(
+        @PathVariable Long userId,
+        @RequestParam int year,
+        @RequestParam int month) {
+
+    // 1. Kiểm tra người dùng tồn tại
+    User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy nhân viên"));
+
+    // 2. Xác định khoảng thời gian cần tính (đầu tháng -> cuối tháng)
+    LocalDate start = LocalDate.of(year, month, 1);
+    LocalDate end = YearMonth.of(year, month).atEndOfMonth();
+
+    // 3. Lấy tất cả ca làm việc của nhân viên trong tháng đó
+    List<ShiftAssignment> assignments = shiftAssignmentRepository.findByUserAndWorkDateBetween(user, start, end);
+
+    // 4. Tính toán
+    double totalPay = 0.0;
+    double totalPenalty = 0.0;
+    int completedShifts = 0;
+    int lateCount = 0;
+
+    for (ShiftAssignment sa : assignments) {
+        // Cộng lương ca (nếu ca có giá)
+        if (sa.getShift() != null && sa.getShift().getShiftPrice() != null) {
+            totalPay += sa.getShift().getShiftPrice();
+        }
+        // Lấy attendance của ca đó
+        Attendance att = attendanceRepository.findByShiftAssignment(sa);
+        if (att != null) {
+            // Cộng phạt (nếu có)
+            if (att.getPenaltyFee() != null && att.getPenaltyFee() > 0) {
+                totalPenalty += att.getPenaltyFee();
+                lateCount++;
+            }
+            // Đếm ca đã hoàn thành (có check-out)
+            if ("COMPLETED".equals(att.getStatus())) {
+                completedShifts++;
+            }
+        }
+    }
+
+    // 5. Đóng gói kết quả trả về
+    Map<String, Object> response = new HashMap<>();
+    response.put("staffName", user.getFullName());
+    response.put("year", year);
+    response.put("month", month);
+    response.put("totalShifts", completedShifts);
+    response.put("totalPay", totalPay);
+    response.put("totalPenalty", totalPenalty);
+    response.put("netSalary", totalPay - totalPenalty);
+    response.put("lateCount", lateCount);
+    return response;
+}
+
+    
 }

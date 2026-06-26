@@ -1,5 +1,6 @@
 // src/pages/staff/StaffDashboard.jsx
 import { useState, useEffect, useCallback } from "react";
+import { getSalary } from "../../services/api";
 import "./StaffDashboard.css";
 
 const API = "http://localhost:8080/api";
@@ -586,6 +587,104 @@ function HandoverSection({ user }) {
   );
 }
 
+// ─── SECTION: XEM LƯƠNG ──────────────────────────────────
+function SalarySection({ user }) {
+  const now = new Date();
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(now.getFullYear());
+  const [salaryData, setSalaryData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState({ text: "", type: "" });
+
+  const fetchSalary = async () => {
+    setLoading(true);
+    setMsg({ text: "", type: "" });
+    try {
+      const res = await getSalary(user.id, year, month);
+      setSalaryData(res.data);
+    } catch (err) {
+      setMsg({ text: err.response?.data?.message || "Không thể tải dữ liệu lương", type: "error" });
+      setSalaryData(null);
+    }
+    setLoading(false);
+  };
+
+  // Tự động fetch khi user, month, year thay đổi
+  useEffect(() => {
+    fetchSalary();
+  }, [user.id, month, year]);
+
+  const handleMonthChange = (e) => {
+    const [newYear, newMonth] = e.target.value.split("-").map(Number);
+    setYear(newYear);
+    setMonth(newMonth);
+  };
+
+  const currentMonthStr = `${year}-${String(month).padStart(2, "0")}`;
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 20 }}>
+        <label style={{ fontWeight: 600 }}>Chọn tháng:</label>
+        <input
+          type="month"
+          value={currentMonthStr}
+          onChange={handleMonthChange}
+          style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid var(--border)" }}
+        />
+        <button onClick={fetchSalary} className="btn-primary" style={{ padding: "6px 16px" }}>
+          🔄 Tải lại
+        </button>
+      </div>
+
+      <Alert msg={msg.text} type={msg.type} />
+
+      {loading ? (
+        <div className="loading">Đang tải...</div>
+      ) : salaryData ? (
+        <div className="salary-result" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div className="salary-item">
+            <span className="label">Nhân viên</span>
+            <span className="value">{salaryData.staffName}</span>
+          </div>
+          <div className="salary-item">
+            <span className="label">Tháng</span>
+            <span className="value">{salaryData.month}/{salaryData.year}</span>
+          </div>
+          <div className="salary-item">
+            <span className="label">Số ca hoàn thành</span>
+            <span className="value">{salaryData.totalShifts}</span>
+          </div>
+          <div className="salary-item">
+            <span className="label">Số lần đi trễ</span>
+            <span className="value">{salaryData.lateCount}</span>
+          </div>
+          <div className="salary-item">
+            <span className="label">Tổng lương (chưa trừ phạt)</span>
+            <span className="value" style={{ color: "var(--primary)" }}>
+              {salaryData.totalPay.toLocaleString("vi-VN")} ₫
+            </span>
+          </div>
+          <div className="salary-item">
+            <span className="label">Tổng tiền phạt</span>
+            <span className="value" style={{ color: "var(--danger)" }}>
+              {salaryData.totalPenalty.toLocaleString("vi-VN")} ₫
+            </span>
+          </div>
+          <div className="salary-item" style={{ gridColumn: "span 2", borderTop: "2px solid var(--border)", paddingTop: 12 }}>
+            <span className="label" style={{ fontSize: 18, fontWeight: 700 }}>💰 Lương thực nhận</span>
+            <span className="value" style={{ fontSize: 24, fontWeight: 700, color: "var(--primary)" }}>
+              {salaryData.netSalary.toLocaleString("vi-VN")} ₫
+            </span>
+          </div>
+        </div>
+      ) : (
+        <div className="empty-state">Không có dữ liệu</div>
+      )}
+    </div>
+  );
+}
+
 // ─── TỔNG HỢP: DASHBOARD ──────────────────────────────────
 export default function StaffDashboard({ user, onLogout }) {
   const [tab, setTab] = useState("schedule");
@@ -608,6 +707,7 @@ export default function StaffDashboard({ user, onLogout }) {
     { id: "requests", icon: "📝", label: "Đơn xin nghỉ/Đổi ca" },
     { id: "incidents", icon: "🚨", label: "Báo cáo sự cố" },
     { id: "handover", icon: "🤝", label: "Bàn giao ca" },
+    { id: "salary", icon: "💰", label: "Lương" },
   ];
 
   const pageTitles = {
@@ -615,6 +715,7 @@ export default function StaffDashboard({ user, onLogout }) {
     requests:  { title: "Đơn xin nghỉ / Đổi ca", sub: "Gửi và theo dõi trạng thái đơn" },
     incidents: { title: "Báo cáo sự cố",         sub: "Mất thẻ, không đủ chỗ, hỏng thiết bị..." },
     handover:  { title: "Bàn giao ca",           sub: "Xem đồng nghiệp cùng ca" },
+    salary:    { title: "Bảng lương",            sub: "Xem thu nhập của bạn theo tháng" },
   };
 
   return (
@@ -683,6 +784,7 @@ export default function StaffDashboard({ user, onLogout }) {
           {tab === "requests"  && <RequestSection user={user} />}
           {tab === "incidents" && <IncidentSection user={user} />}
           {tab === "handover"  && <HandoverSection user={user} />}
+          {tab === "salary"    && <SalarySection user={user} />}
         </div>
       </main>
     </div>
