@@ -20,7 +20,7 @@ import java.util.ArrayList;
 
 @Service
 @SuppressWarnings("null")
-public class HrService {
+public class ManagerReportService {
 
     @Autowired private UserRepository userRepository;
     @Autowired private ShiftAssignmentRepository shiftAssignmentRepository;
@@ -106,12 +106,13 @@ public class HrService {
                 if (row == null) continue;
 
                 try {
-                    // Giả sử cấu trúc cột: 0: Họ tên, 1: Username, 2: Lương, 3: Ca làm, 4: Ngày làm
+                    // Giả sử cấu trúc cột: 0: Họ tên, 1: Username, 2: Email, 3: Lương, 4: Ca làm, 5: Ngày làm
                     String fullName = getCellString(row.getCell(0));
                     String username = getCellString(row.getCell(1));
-                    Double salary = getCellDouble(row.getCell(2));
-                    String workShift = getCellString(row.getCell(3));
-                    String workDays = getCellString(row.getCell(4));
+                    String email = getCellString(row.getCell(2));
+                    Double salary = getCellDouble(row.getCell(3));
+                    String workShift = getCellString(row.getCell(4));
+                    String workDays = getCellString(row.getCell(5));
 
                     // Validate
                     if (fullName == null || fullName.trim().isEmpty()) {
@@ -133,6 +134,7 @@ public class HrService {
                     EmployeeImportDraft draft = new EmployeeImportDraft();
                     draft.setFullName(fullName.trim());
                     draft.setUsername(username.trim());
+                    draft.setEmail(email != null ? email.trim() : "");
                     draft.setSalary(salary != null ? salary : 0.0);
                     draft.setWorkShift(workShift != null ? workShift.trim() : "");
                     draft.setWorkDays(workDays != null ? workDays.trim() : "");

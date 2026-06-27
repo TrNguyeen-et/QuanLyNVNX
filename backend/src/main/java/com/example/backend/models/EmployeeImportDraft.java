@@ -29,6 +29,10 @@ public class EmployeeImportDraft {
 
     private String workDays;   // ngày làm việc
 
+    private String position;   // nhiệm vụ (chức danh)
+
+    private String email;      // email nhân viên
+
     // Người upload (HR)
     @Column(name = "uploaded_by")
     private Long uploadedBy;
@@ -73,6 +77,12 @@ public class EmployeeImportDraft {
 
     public String getWorkDays() { return workDays; }
     public void setWorkDays(String workDays) { this.workDays = workDays; }
+
+    public String getPosition() { return position; }
+    public void setPosition(String position) { this.position = position; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
 
     public Long getUploadedBy() { return uploadedBy; }
     public void setUploadedBy(Long uploadedBy) { this.uploadedBy = uploadedBy; }

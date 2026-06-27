@@ -3,6 +3,8 @@ package com.example.backend.controllers;
 import com.example.backend.models.*;
 import com.example.backend.repositories.*;
 import com.example.backend.services.ShiftService;
+import com.example.backend.services.ManagerReportService;
+import org.springframework.web.multipart.MultipartFile;
 import com.example.backend.services.LeaveRequestService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -11,6 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.YearMonth;
 import java.util.*;
 
 @RestController
@@ -18,6 +21,51 @@ import java.util.*;
 @CrossOrigin(origins = "*")
 @SuppressWarnings("null")
 public class ManagerController {
+
+    @GetMapping("/hr-report")
+    public List<Map<String, Object>> getMonthlyReport(@RequestParam int year, @RequestParam int month) {
+        return managerReportService.getMonthlyReport(year, month);
+    }
+
+    @PostMapping("/import-staff")
+    public Map<String, String> importStaff(@RequestParam("file") MultipartFile file) {
+        Long managerId = 1L; // demo hardcode
+        try {
+            String message = managerReportService.importStaffFromExcel(file, managerId);
+            Map<String, String> res = new HashMap<>();
+            res.put("message", message);
+            return res;
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
+        }
+    }
+
+    @Autowired private com.example.backend.repositories.EmployeeImportDraftRepository employeeImportDraftRepository;
+
+    @PostMapping("/add-staff-draft")
+    public Map<String, String> addStaffDraft(@RequestBody EmployeeImportDraft draft) {
+        if (draft.getUsername() == null || draft.getUsername().trim().isEmpty() ||
+            draft.getFullName() == null || draft.getFullName().trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thiếu thông tin bắt buộc!");
+        }
+        if (userRepository.findByUsername(draft.getUsername()).isPresent() ||
+            employeeImportDraftRepository.existsByUsername(draft.getUsername())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tài khoản đã tồn tại!");
+        }
+        if ("ACCOUNTANT".equals(draft.getRole())) {
+            draft.setRole("ACCOUNTANT");
+        } else {
+            draft.setRole("STAFF");
+        }
+        draft.setStatus("PENDING");
+        draft.setUploadedAt(java.time.LocalDateTime.now());
+        draft.setUploadedBy(1L); // hardcode manager id
+        employeeImportDraftRepository.save(draft);
+
+        Map<String, String> res = new HashMap<>();
+        res.put("message", "Đã tạo bản nháp thành công, chờ Admin duyệt.");
+        return res;
+    }
 
     @Autowired private UserRepository userRepository;
     @Autowired private ShiftRepository shiftRepository;
@@ -27,6 +75,8 @@ public class ManagerController {
     @Autowired private IncidentRepository incidentRepository;
     @Autowired private ShiftService shiftService;
     @Autowired private LeaveRequestService leaveRequestService;
+    @Autowired private ManagerReportService managerReportService;
+    @Autowired private com.example.backend.services.EmailService emailService;
 
     @GetMapping("/staff-list")
     public List<User> getAllStaff() { return userRepository.findAll(); }
@@ -90,9 +140,46 @@ public class ManagerController {
             item.put("pay", pay);
             item.put("penalty", penalty);
             item.put("final", pay - penalty);
+            item.put("userId", s.getId()); // added userId for payslip sending
+            item.put("email", s.getEmail());
             report.add(item);
         }
         return report;
+    }
+
+    @PostMapping("/send-payslip")
+    public Map<String, Object> sendPayslip(@RequestBody Map<String, Object> payload) {
+        Long userId = Long.valueOf(payload.get("userId").toString());
+        String monthYear = YearMonth.now().toString(); // Mặc định là tháng hiện tại (yyyy-MM)
+        
+        User s = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy user"));
+        
+        List<ShiftAssignment> assigns = shiftAssignmentRepository.findByUser(s);
+        double pay = 0, penalty = 0;
+        int comp = 0, lateCount = 0;
+        for (ShiftAssignment a : assigns) {
+            if ("COMPLETED".equals(a.getStatus()) || "DONE".equals(a.getStatus())) {
+                comp++;
+                if (a.getShift() != null && a.getShift().getShiftPrice() != null)
+                    pay += a.getShift().getShiftPrice();
+                Attendance att = attendanceRepository.findByShiftAssignment(a);
+                if (att != null && att.getPenaltyFee() != null) {
+                    penalty += att.getPenaltyFee();
+                    if (att.getPenaltyFee() > 0) lateCount++;
+                }
+            }
+        }
+        
+        if (s.getEmail() == null || s.getEmail().trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nhân viên chưa có địa chỉ email!");
+        }
+
+        emailService.sendPayslipEmail(s.getEmail(), s.getFullName(), monthYear, pay - penalty, comp, lateCount, penalty);
+        
+        Map<String, Object> res = new HashMap<>();
+        res.put("message", "Đã gửi phiếu lương thành công đến " + s.getEmail());
+        return res;
     }
 
     @GetMapping("/reports/late")

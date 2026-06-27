@@ -23,6 +23,8 @@ public class User {
     private Double salary;
     private String workShift; //SHIFT 1: 6 AM - 14 PM, SHIFT 2: 14 PM - 22 PM
     private String workDays; // Ngày trong tuần (Sunday, Monday,...) 
+    private String position; // Nhiệm vụ (Ví dụ: Nhân viên bãi 1, Nhân viên quẹt thẻ)
+    private String email;    // Email để nhận thông báo
 
     // Explicit getters
     public Long getId() { return id; }
@@ -34,6 +36,8 @@ public class User {
     public Double getSalary() { return salary; }
     public String getWorkShift() { return workShift; }
     public String getWorkDays() { return workDays; }
+    public String getPosition() { return position; }
+    public String getEmail() { return email; }
 
     // Explicit setters
     public void setId(Long id) { this.id = id; }
@@ -45,4 +49,6 @@ public class User {
     public void setSalary(Double salary) { this.salary = salary; }
     public void setWorkShift(String workShift) { this.workShift = workShift; }
     public void setWorkDays(String workDays) { this.workDays = workDays; }
+    public void setPosition(String position) { this.position = position; }
+    public void setEmail(String email) { this.email = email; }
 }

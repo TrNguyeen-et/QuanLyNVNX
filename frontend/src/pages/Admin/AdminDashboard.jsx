@@ -1,6 +1,7 @@
 // src/pages/admin/AdminDashboard.jsx
 import { useState, useEffect, useCallback } from "react";
 import "./AdminDashboard.css";
+import { BarChart2, Car, CheckCircle, ClipboardList, Download, Edit, Folder, HardHat, Home, Inbox, Lightbulb, Lock, Pin, PlusCircle, RefreshCcw, RefreshCw, Save, Search, Settings, Trash2, Users, XCircle } from "lucide-react";
 
 const API = "http://localhost:8080/api/admin";
 
@@ -14,7 +15,7 @@ function Alert({ msg, type }) {
   return <div className={`alert ${type}`}>{msg}</div>;
 }
 
-const ROLE_LABEL  = { ADMIN: "Admin", MANAGER: "Quản lý", STAFF: "Nhân viên", HR: "Hành chính" };
+const ROLE_LABEL  = { ADMIN: "Admin", MANAGER: "Quản lý", STAFF: "Nhân viên", ACCOUNTANT: "Kế toán" };
 const STATUS_LABEL = { ACTIVE: "Đang làm", ON_LEAVE: "Nghỉ phép", RESIGNED: "Đã nghỉ" };
 
 // ── 1. TỔNG QUAN ──────────────────────────────────────────
@@ -33,26 +34,26 @@ function OverviewSection() {
     <div>
       <div className="stat-grid">
         <div className="stat-card">
-          <div className="stat-icon blue">👥</div>
+          <div className="stat-icon blue"><Users size={24} /></div>
           <div><div className="stat-label">Tổng tài khoản</div><div className="stat-value">{stats.totalUsers ?? "—"}</div></div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon purple">🔐</div>
-          <div><div className="stat-label">Admin / Quản lý</div><div className="stat-value">{byRole("ADMIN") + byRole("MANAGER")}</div></div>
+          <div className="stat-icon purple"><Lock size={24} /></div>
+          <div><div className="stat-label">Admin / Quản lý / Kế toán</div><div className="stat-value">{byRole("ADMIN") + byRole("MANAGER") + byRole("ACCOUNTANT")}</div></div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon green">👷</div>
+          <div className="stat-icon green"><HardHat size={24} /></div>
           <div><div className="stat-label">Nhân viên</div><div className="stat-value">{byRole("STAFF")}</div></div>
         </div>
       </div>
 
       <div className="card">
-        <div className="card-title">📊 Phân bố vai trò</div>
+        <div className="card-title"><BarChart2 size={18} color="var(--accent)" /> Phân bố vai trò</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-          {["ADMIN", "MANAGER", "STAFF", "HR"].map(role => (
+          {["ADMIN", "MANAGER", "ACCOUNTANT", "STAFF"].map(role => (
             <div key={role} style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px", textAlign: "center" }}>
               <div style={{ fontSize: 28, marginBottom: 6 }}>
-                {role === "ADMIN" ? "🔐" : role === "MANAGER" ? "📋" : role === "HR" ? "📁" : "👷"}
+                {role === "ADMIN" ? <Lock size={16} color="var(--accent)" /> : role === "MANAGER" ? <ClipboardList size={18} color="var(--accent)" /> : role === "ACCOUNTANT" ? <BarChart2 size={16} color="var(--accent)" /> : <HardHat size={16} color="var(--accent)" />}
               </div>
               <div style={{ fontSize: 22, fontWeight: 700 }}>{byRole(role)}</div>
               <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{ROLE_LABEL[role] || role}</div>
@@ -109,7 +110,7 @@ function AccountSection() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || "Lỗi cập nhật");
-        flashMsg("✅ Cập nhật tài khoản thành công!", "success");
+        flashMsg("Cập nhật tài khoản thành công!", "success");
       } else {
         const res = await fetch(`${API}/create-account`, {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -117,7 +118,7 @@ function AccountSection() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || "Lỗi tạo tài khoản");
-        flashMsg(`✅ ${data.message} (ID: ${data.userId})`, "success");
+        flashMsg(`${data.message} (ID: ${data.userId})`, "success");
       }
       closeForm();
       load();
@@ -131,7 +132,7 @@ function AccountSection() {
       const res = await fetch(`${API}/users/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Lỗi xóa");
-      flashMsg(`✅ ${data.message}`, "success");
+      flashMsg(`${data.message}`, "success");
       load();
     } catch (e) { flashMsg(e.message, "error"); }
   };
@@ -148,7 +149,7 @@ function AccountSection() {
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
         <input
           style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", padding: "9px 12px", fontSize: 13, fontFamily: "var(--font)", flex: 1, minWidth: 180 }}
-          placeholder="🔍 Tìm kiếm tên, tài khoản..."
+          placeholder=<><Search size={16} color="var(--accent)" /> Tìm kiếm tên, tài khoản...</>
           value={search} onChange={e => setSearch(e.target.value)}
         />
         <select
@@ -159,14 +160,14 @@ function AccountSection() {
           <option value="ADMIN">Admin</option>
           <option value="MANAGER">Quản lý</option>
           <option value="STAFF">Nhân viên</option>
-          <option value="HR">Hành chính</option>
+          <option value="ACCOUNTANT">Kế toán</option>
         </select>
         <button className="btn-primary" onClick={openCreate}>+ Tạo tài khoản</button>
       </div>
 
       {showForm && (
         <div className="card" style={{ background: "var(--surface2)", marginBottom: 16, border: "1px solid var(--accent)" }}>
-          <div className="card-title">{editingId ? "✏️ Chỉnh sửa tài khoản" : "➕ Tạo tài khoản mới"}</div>
+          <div className="card-title">{editingId ? <><Edit size={16} color="var(--accent)" /> Chỉnh sửa tài khoản</> : <><PlusCircle size={18} color="var(--accent)" /> Tạo tài khoản mới</>}</div>
           <div className="form-row">
             <div className="form-group">
               <label>Tài khoản *</label>
@@ -186,7 +187,7 @@ function AccountSection() {
                 <option value="ADMIN">Admin</option>
                 <option value="MANAGER">Quản lý</option>
                 <option value="STAFF">Nhân viên</option>
-                <option value="HR">Hành chính</option>
+                <option value="ACCOUNTANT">Kế toán</option>
               </select>
             </div>
             <div className="form-group">
@@ -217,7 +218,7 @@ function AccountSection() {
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             <button className="btn-primary" onClick={handleSubmit} disabled={loading}>
-              {loading ? "Đang lưu..." : editingId ? "💾 Lưu thay đổi" : "✅ Tạo tài khoản"}
+              {loading ? "Đang lưu..." : editingId ? <><Save size={16} color="var(--accent)" /> Lưu thay đổi</> : <><CheckCircle size={16} color="var(--accent)" /> Tạo tài khoản</>}
             </button>
             <button className="btn-cancel-sm" onClick={closeForm}>Hủy</button>
           </div>
@@ -225,9 +226,9 @@ function AccountSection() {
       )}
 
       <div className="card">
-        <div className="card-title">👥 Danh sách tài khoản ({filtered.length})</div>
+        <div className="card-title"><Users size={18} color="var(--accent)" /> Danh sách tài khoản ({filtered.length})</div>
         {filtered.length === 0 ? (
-          <div className="empty-state"><div className="emoji">🔍</div>Không tìm thấy tài khoản nào</div>
+          <div className="empty-state"><div className="emoji"><Search size={16} color="var(--accent)" /></div>Không tìm thấy tài khoản nào</div>
         ) : (
           <div className="table-wrap">
             <table>
@@ -248,8 +249,8 @@ function AccountSection() {
                     <td style={{ fontSize: 12, color: "var(--text-muted)" }}>{u.workShift || "—"}</td>
                     <td style={{ fontSize: 12 }}>{u.salary ? Number(u.salary).toLocaleString("vi-VN") + " ₫" : "—"}</td>
                     <td style={{ whiteSpace: "nowrap" }}>
-                      <button className="btn-edit" onClick={() => openEdit(u)}>✏️</button>
-                      <button className="btn-del"  onClick={() => handleDelete(u.id, u.fullName)}>🗑</button>
+                      <button className="btn-edit" onClick={() => openEdit(u)}><Edit size={16} color="var(--accent)" /></button>
+                      <button className="btn-del"  onClick={() => handleDelete(u.id, u.fullName)}><Trash2 size={16} color="var(--accent)" /></button>
                     </td>
                   </tr>
                 ))}
@@ -351,22 +352,22 @@ function ImportSection() {
     <div>
       <Alert msg={msg.text} type={msg.type} />
       <div className="card">
-        <div className="card-title">📥 Hồ sơ nhân viên chờ duyệt ({drafts.length})</div>
+        <div className="card-title"><Download size={16} color="var(--accent)" /> Hồ sơ nhân viên chờ duyệt ({drafts.length})</div>
         <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
           <button className="btn-primary" onClick={handleApprove} disabled={loading || selectedIds.length === 0}>
-            ✅ Duyệt đã chọn
+            <CheckCircle size={16} color="var(--accent)" /> Duyệt đã chọn
           </button>
           <button className="btn-danger" onClick={handleReject} disabled={loading || selectedIds.length === 0}>
-            ❌ Từ chối đã chọn
+            <XCircle size={16} color="var(--accent)" /> Từ chối đã chọn
           </button>
           <button className="btn-cancel-sm" onClick={loadDrafts} disabled={loading}>
-            🔄 Làm mới
+            <RefreshCw size={16} color="var(--accent)" /> Làm mới
           </button>
         </div>
 
         {drafts.length === 0 ? (
           <div className="empty-state">
-            <div className="emoji">📭</div>
+            <div className="emoji" style={{color: "var(--accent)"}}><Inbox size={48} /></div>
             Không có hồ sơ nào đang chờ duyệt.
           </div>
         ) : (
@@ -380,6 +381,7 @@ function ImportSection() {
                   <th>ID</th>
                   <th>Họ tên</th>
                   <th>Username</th>
+                  <th>Nhiệm vụ</th>
                   <th>Lương</th>
                   <th>Ca mặc định</th>
                   <th>Ngày làm</th>
@@ -400,7 +402,8 @@ function ImportSection() {
                     <td>#{d.id}</td>
                     <td><strong>{d.fullName}</strong></td>
                     <td>{d.username}</td>
-                    <td>{d.salary ? Number(d.salary).toLocaleString('vi-VN') + ' ₫' : '—'}</td>
+                    <td>{d.position || "—"}</td>
+                    <td>{d.salary ? Number(d.salary).toLocaleString("vi-VN") + " ₫" : "—"}</td>
                     <td>{d.workShift || '—'}</td>
                     <td>{d.workDays || '—'}</td>
                     <td>#{d.uploadedBy}</td>
@@ -437,23 +440,23 @@ function LogSection() {
   return (
     <div>
       <div className="card">
-        <div className="card-title">📋 Nhật ký hệ thống ({filtered.length})</div>
+        <div className="card-title"><ClipboardList size={18} color="var(--accent)" /> Nhật ký hệ thống ({filtered.length})</div>
         <input
           style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", padding: "9px 12px", fontSize: 13, fontFamily: "var(--font)", width: "100%", marginBottom: 16 }}
-          placeholder="🔍 Tìm kiếm hành động..."
+          placeholder=<><Search size={16} color="var(--accent)" /> Tìm kiếm hành động...</>
           value={search} onChange={e => setSearch(e.target.value)}
         />
         {loading ? (
           <div className="loading">Đang tải log...</div>
         ) : filtered.length === 0 ? (
-          <div className="empty-state"><div className="emoji">📭</div>Chưa có log nào</div>
+          <div className="empty-state"><div className="emoji" style={{color: "var(--accent)"}}><Inbox size={48} /></div>Chưa có log nào</div>
         ) : (
           <div className="log-list">
             {filtered.map(log => (
               <div className="log-item" key={log.id}>
                 <div className="log-action">
                   <span style={{ marginRight: 8, fontSize: 14 }}>
-                    {log.action?.startsWith("Tạo") ? "✅" : log.action?.startsWith("Xóa") ? "🗑" : log.action?.startsWith("Cập") ? "✏️" : log.action?.startsWith("Thay") ? "⚙️" : "📌"}
+                    {log.action?.startsWith("Tạo") ? <><CheckCircle size={16} color="var(--accent)" /></> : log.action?.startsWith("Xóa") ? <><Trash2 size={16} color="var(--accent)" /></> : log.action?.startsWith("Cập") ? <><Edit size={16} color="var(--accent)" /></> : log.action?.startsWith("Thay") ? <><Settings size={18} color="var(--accent)" /></> : <><Pin size={16} color="var(--accent)" /></>}
                   </span>
                   {log.action}
                 </div>
@@ -491,7 +494,7 @@ function ConfigSection() {
         body: JSON.stringify({ configValue: newVal }),
       });
       if (!res.ok) throw new Error("Lỗi cập nhật");
-      setMsg({ text: `✅ Đã cập nhật cấu hình ${key}!`, type: "success" });
+      setMsg({ text: `Đã cập nhật cấu hình ${key}!`, type: "success" });
       const newEditing = { ...editing };
       delete newEditing[key];
       setEditing(newEditing);
@@ -503,12 +506,12 @@ function ConfigSection() {
     <div>
       <Alert msg={msg.text} type={msg.type} />
       <div className="card">
-        <div className="card-title">⚙️ Cấu hình hệ thống</div>
+        <div className="card-title"><Settings size={18} color="var(--accent)" /> Cấu hình hệ thống</div>
         <div className="alert info" style={{ marginBottom: 16 }}>
-          💡 Thay đổi cấu hình tại đây sẽ áp dụng ngay lập tức mà không cần sửa code hoặc khởi động lại.
+          <Lightbulb size={16} color="var(--accent)" /> Thay đổi cấu hình tại đây sẽ áp dụng ngay lập tức mà không cần sửa code hoặc khởi động lại.
         </div>
         {configs.length === 0 ? (
-          <div className="empty-state"><div className="emoji">⚙️</div>Không có cấu hình nào</div>
+          <div className="empty-state"><div className="emoji"><Settings size={18} color="var(--accent)" /></div>Không có cấu hình nào</div>
         ) : (
           configs.map(c => (
             <div className="config-item" key={c.configKey}>
@@ -554,14 +557,14 @@ function BackupSection() {
       a.click();
       URL.revokeObjectURL(url);
 
-      setMsg({ text: `✅ Sao lưu thành công! Tổng ${data.totalRecords || "?"} bản ghi.`, type: "success" });
+      setMsg({ text: `Sao lưu thành công! Tổng ${data.totalRecords || "?"} bản ghi.`, type: "success" });
     } catch (e) { setMsg({ text: e.message, type: "error" }); }
     setLoading(false);
   };
 
   const handleRestore = async () => {
     if (!restoreData.trim()) { setMsg({ text: "Vui lòng dán dữ liệu JSON vào ô bên dưới!", type: "error" }); return; }
-    if (!confirm("⚠️ Phục hồi dữ liệu sẽ ghi đè lên dữ liệu hiện tại. Bạn chắc chắn?")) return;
+    if (!confirm("Cảnh báo: Phục hồi dữ liệu sẽ ghi đè lên dữ liệu hiện tại. Bạn chắc chắn?")) return;
     setLoading(true);
     try {
       const parsed = JSON.parse(restoreData);
@@ -572,7 +575,7 @@ function BackupSection() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Lỗi phục hồi");
-      setMsg({ text: `✅ ${data.message}`, type: "success" });
+      setMsg({ text: `${data.message}`, type: "success" });
       setRestoreData("");
     } catch (e) {
       setMsg({ text: e.message.includes("JSON") ? "File JSON không hợp lệ!" : e.message, type: "error" });
@@ -585,19 +588,19 @@ function BackupSection() {
       <Alert msg={msg.text} type={msg.type} />
 
       <div className="card">
-        <div className="card-title">💾 Sao lưu dữ liệu</div>
+        <div className="card-title"><Save size={16} color="var(--accent)" /> Sao lưu dữ liệu</div>
         <div className="backup-info">
           Sao lưu toàn bộ dữ liệu hệ thống (tài khoản, ca làm, phân công, chấm công, đơn nghỉ, sự cố) thành file JSON và tải về máy.
         </div>
         <div className="backup-actions">
           <button className="btn-success" onClick={handleBackup} disabled={loading}>
-            {loading ? "Đang xử lý..." : "📥 Tải file sao lưu (.json)"}
+            {loading ? "Đang xử lý..." : <><Download size={16} color="var(--accent)" /> Tải file sao lưu (.json)</>}
           </button>
         </div>
       </div>
 
       <div className="card">
-        <div className="card-title">♻️ Phục hồi dữ liệu</div>
+        <div className="card-title"><RefreshCcw size={18} color="var(--accent)" /> Phục hồi dữ liệu</div>
         <div className="backup-info">
           Dán nội dung file JSON (đã tải về trước đó) vào ô bên dưới rồi nhấn Phục hồi.
           <strong style={{ color: "var(--danger)" }}> Lưu ý: Thao tác này sẽ ghi đè dữ liệu hiện tại!</strong>
@@ -609,7 +612,7 @@ function BackupSection() {
           style={{ width: "100%", minHeight: 140, background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", padding: 12, fontSize: 13, fontFamily: "monospace", resize: "vertical", marginBottom: 12 }}
         />
         <button className="btn-danger" onClick={handleRestore} disabled={loading}>
-          {loading ? "Đang phục hồi..." : "♻️ Phục hồi dữ liệu"}
+          {loading ? "Đang phục hồi..." : <><RefreshCcw size={18} color="var(--accent)" /> Phục hồi dữ liệu</>}
         </button>
       </div>
     </div>
@@ -621,16 +624,16 @@ export default function AdminDashboard({ user, onLogout }) {
   const [tab, setTab] = useState("overview");
 
   const navItems = [
-    { id: "overview", icon: "🏠", label: "Tổng quan" },
-    { id: "accounts", icon: "👥", label: "Tài khoản" },
-    { id: "imports",  icon: "📥", label: "Duyệt nhân viên" },
-    { id: "logs",     icon: "📋", label: "Nhật ký hệ thống" },
-    { id: "configs",  icon: "⚙️", label: "Cấu hình" },
-    { id: "backup",   icon: "💾", label: "Sao lưu & Phục hồi" },
+    { id: "overview", icon: <Home size={18} />, label: "Báo cáo hệ thống" },
+    { id: "accounts", icon: <Users size={18} />, label: "Tài khoản" },
+    { id: "imports",  icon: <Download size={18} />, label: "Duyệt nhân viên" },
+    { id: "logs",     icon: <ClipboardList size={18} />, label: "Nhật ký hệ thống" },
+    { id: "configs",  icon: <Settings size={18} />, label: "Cấu hình" },
+    { id: "backup",   icon: <Save size={18} />, label: "Sao lưu & Phục hồi" },
   ];
 
   const pageTitles = {
-    overview:  { title: "Tổng quan hệ thống",      sub: "Chào mừng, " + user.fullName },
+    overview:  { title: "Báo cáo hệ thống",      sub: "Thống kê tổng quan, chào mừng " + user.fullName },
     accounts:  { title: "Quản lý tài khoản",        sub: "Thêm, sửa, xóa và cấp quyền tài khoản" },
     imports:   { title: "Duyệt nhân viên",          sub: "Xem và phê duyệt hồ sơ nhập từ Excel" },
     logs:      { title: "Nhật ký hệ thống",         sub: "Ghi lại toàn bộ hành động trong hệ thống" },
@@ -642,8 +645,7 @@ export default function AdminDashboard({ user, onLogout }) {
     <div className="admin-layout">
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <h2>🚗 NhàXe</h2>
-          <p>Quản trị hệ thống</p>
+          <h2>Admin</h2>
         </div>
         <nav className="sidebar-nav">
           {navItems.map(item => (
@@ -653,10 +655,6 @@ export default function AdminDashboard({ user, onLogout }) {
             </button>
           ))}
         </nav>
-        <div className="sidebar-user">
-          <div className="name">{user.fullName}</div>
-          <span className="role-badge">Admin</span>
-        </div>
         <button className="btn-logout" onClick={onLogout}>Đăng xuất</button>
       </aside>
 

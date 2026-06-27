@@ -5,7 +5,7 @@ import LoginPage        from "./pages/auth/LoginPage";       // auth - chữ th�
 import StaffDashboard   from "./pages/Staff/StaffDashboard"; // Staff - chữ HOA
 import ManagerDashboard from "./pages/Manager/ManagerDashboard"; // Manager - chữ HOA
 import AdminDashboard   from "./pages/Admin/AdminDashboard"; // Admin - chữ HOA
-import HrDashboard      from "./pages/HR/HrDashboard";
+import AccountantDashboard from "./pages/Accountant/AccountantDashboard";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -26,7 +26,7 @@ export default function App() {
     case "STAFF":   return <StaffDashboard   user={user} onLogout={handleLogout} />;
     case "MANAGER": return <ManagerDashboard user={user} onLogout={handleLogout} />;
     case "ADMIN":   return <AdminDashboard   user={user} onLogout={handleLogout} />;
-    case "HR":      return <HrDashboard      user={user} onLogout={handleLogout} />;
+    case "ACCOUNTANT": return <AccountantDashboard user={user} onLogout={handleLogout} />;
     default:
       return (
         <div style={{ color:"#ef4444", padding:32 }}>

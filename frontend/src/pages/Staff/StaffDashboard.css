@@ -1,17 +1,17 @@
 /* src/pages/staff/StaffDashboard.css */
 
 :root {
-  --bg: #0f1117;
-  --surface: #1a1d27;
-  --surface2: #22263a;
-  --border: #2e3349;
-  --accent: #4f8ef7;
-  --accent2: #7c5cfc;
-  --success: #22c55e;
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface2: #f1f5f9;
+  --border: #e2e8f0;
+  --accent: #3b82f6;
+  --accent2: #6366f1;
+  --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
-  --text: #e8eaf6;
-  --text-muted: #8b92b5;
+  --text: #0f172a;
+  --text-muted: #000000;
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
 }
 
@@ -41,6 +41,7 @@
   padding: 0 20px 24px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 16px;
+  text-align: center;
 }
 .sidebar-logo h2 {
   font-size: 18px;
@@ -70,7 +71,7 @@
   border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
-  color: var(--text-muted);
+  color: var(--accent);
   transition: all 0.2s;
   border: none;
   background: none;
@@ -83,7 +84,7 @@
   color: var(--accent);
   font-weight: 600;
 }
-.nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+.nav-item .icon { font-size: 16px; width: 20px; text-align: center; color: var(--accent); }
 
 .sidebar-user {
   padding: 16px 20px 0;
@@ -102,18 +103,19 @@
 }
 
 .btn-logout {
-  margin: 12px 20px 0;
-  padding: 8px;
-  background: rgba(239,68,68,0.1);
-  color: var(--danger);
-  border: 1px solid rgba(239,68,68,0.2);
+  margin: auto 20px 24px;
+  padding: 10px 8px;
+  background: var(--danger);
+  color: #ffffff;
+  border: none;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
   width: calc(100% - 40px);
 }
-.btn-logout:hover { background: rgba(239,68,68,0.2); }
+.btn-logout:hover { opacity: 0.85; }
 
 /* ── MAIN CONTENT ── */
 .main-content {
@@ -128,6 +130,7 @@
 .page-header h1 {
   font-size: 24px;
   font-weight: 700;
+  color: var(--accent);
 }
 .page-header p {
   color: var(--text-muted);
@@ -173,10 +176,10 @@
   border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
   font-size: 20px;
-}
+ color: var(--accent); }
 .stat-icon.blue { background: rgba(79,142,247,0.15); }
-.stat-icon.green { background: rgba(34,197,94,0.15); }
-.stat-icon.yellow { background: rgba(245,158,11,0.15); }
+.stat-icon.green { background: rgba(79,142,247,0.15); }
+.stat-icon.yellow { background: rgba(79,142,247,0.15); }
 .stat-label { font-size: 12px; color: var(--text-muted); }
 .stat-value { font-size: 22px; font-weight: 700; margin-top: 2px; }
 

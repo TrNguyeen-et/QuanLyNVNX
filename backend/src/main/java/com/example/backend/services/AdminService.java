@@ -28,6 +28,7 @@ public class AdminService {
     @Autowired private UserRepository userRepository;
     @Autowired private AuditLogRepository auditLogRepository;
     @Autowired private EmployeeImportDraftRepository employeeImportDraftRepository;
+    @Autowired private EmailService emailService;
 
     // ==================== 1. QUẢN LÝ CẤU HÌNH HỆ THỐNG ====================
     
@@ -111,8 +112,20 @@ public class AdminService {
             newUser.setSalary(draft.getSalary() != null ? draft.getSalary() : 0.0);
             newUser.setWorkShift(draft.getWorkShift());
             newUser.setWorkDays(draft.getWorkDays());
+            newUser.setPosition(draft.getPosition());
+            newUser.setEmail(draft.getEmail());
 
             userRepository.save(newUser);
+
+            // Gửi email chào mừng và cấp tài khoản
+            if (newUser.getEmail() != null && !newUser.getEmail().trim().isEmpty()) {
+                emailService.sendWelcomeEmail(
+                    newUser.getEmail(), 
+                    newUser.getFullName(), 
+                    newUser.getUsername(), 
+                    newUser.getPassword()
+                );
+            }
 
             // Cập nhật trạng thái draft
             draft.setStatus("APPROVED");

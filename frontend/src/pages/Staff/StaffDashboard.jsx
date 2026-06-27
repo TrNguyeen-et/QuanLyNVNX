@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { getSalary } from "../../services/api";
 import "./StaffDashboard.css";
+import { AlertTriangle, Banknote, BarChart3, CalendarDays, Car, CheckCircle, ClipboardList, FileText, Flag, Handshake, Inbox, RefreshCw, User } from "lucide-react";
 
 const API = "http://localhost:8080/api";
 const DAYS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
@@ -85,7 +86,7 @@ function ScheduleSection({ user }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Lỗi check in");
-      setMsg({ text: `✅ ${data.message}`, type: "success" });
+      setMsg({ text: `${data.message}`, type: "success" });
       // Reload attendance
       const ar = await fetch(`${API}/staff/attendance/${selectedAssignment.id}`);
       if (ar.ok) setAttendance(await ar.json());
@@ -104,7 +105,7 @@ function ScheduleSection({ user }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Lỗi check out");
-      setMsg({ text: `✅ ${data.message}`, type: "success" });
+      setMsg({ text: `${data.message}`, type: "success" });
       const ar = await fetch(`${API}/staff/attendance/${selectedAssignment.id}`);
       if (ar.ok) setAttendance(await ar.json());
       loadSchedule();
@@ -168,7 +169,7 @@ function ScheduleSection({ user }) {
 
       {selectedDay && (
         <div className="shift-detail">
-          <h4>📋 Chi tiết ngày {selectedDay}/{month}/{year}</h4>
+          <h4><ClipboardList size={18} color="var(--accent)" /> Chi tiết ngày {selectedDay}/{month}/{year}</h4>
           <Alert msg={msg.text} type={msg.type} />
 
           {!selectedAssignment ? (
@@ -224,14 +225,14 @@ function ScheduleSection({ user }) {
                   onClick={handleCheckIn}
                   disabled={!!(attendance?.checkInTime)}
                 >
-                  ✅ Check In
+                  <CheckCircle size={16} color="var(--accent)" /> Check In
                 </button>
                 <button
                   className="btn-checkout"
                   onClick={handleCheckOut}
                   disabled={!(attendance?.checkInTime) || !!(attendance?.checkOutTime)}
                 >
-                  🏁 Check Out
+                  <Flag size={16} color="var(--accent)" /> Check Out
                 </button>
               </div>
             </>
@@ -286,7 +287,7 @@ function RequestSection({ user }) {
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error("Gửi đơn thất bại");
-      setMsg({ text: "✅ Gửi đơn thành công!", type: "success" });
+      setMsg({ text: "Gửi đơn thành công!", type: "success" });
       setForm({ requestType: "LEAVE", targetDate: "", reason: "", substituteUserId: "" });
       load();
     } catch (e) {
@@ -301,7 +302,7 @@ function RequestSection({ user }) {
       const res = await fetch(`${API}/staff/request/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Lỗi hủy đơn");
-      setMsg({ text: `✅ ${data.message}`, type: "success" });
+      setMsg({ text: `${data.message}`, type: "success" });
       load();
     } catch (e) {
       setMsg({ text: e.message, type: "error" });
@@ -314,7 +315,7 @@ function RequestSection({ user }) {
 
       {/* Form gửi đơn */}
       <div className="card">
-        <div className="card-title">📝 Gửi đơn mới</div>
+        <div className="card-title"><FileText size={18} color="var(--accent)" /> Gửi đơn mới</div>
         <div className="form-group">
           <label>Loại đơn</label>
           <select value={form.requestType} onChange={e => setForm({ ...form, requestType: e.target.value })}>
@@ -359,10 +360,10 @@ function RequestSection({ user }) {
 
       {/* Danh sách đơn */}
       <div className="card">
-        <div className="card-title">📋 Đơn đã gửi</div>
+        <div className="card-title"><ClipboardList size={18} color="var(--accent)" /> Đơn đã gửi</div>
         {requests.length === 0 ? (
           <div className="empty-state">
-            <div className="emoji">📭</div>
+            <div className="emoji" style={{color: "var(--accent)"}}><Inbox size={48} /></div>
             Chưa có đơn nào
           </div>
         ) : (
@@ -442,7 +443,7 @@ function IncidentSection({ user }) {
         body: JSON.stringify({ userId: user.id, content }),
       });
       if (!res.ok) throw new Error("Gửi báo cáo thất bại");
-      setMsg({ text: "✅ Báo cáo sự cố đã được gửi!", type: "success" });
+      setMsg({ text: "Báo cáo sự cố đã được gửi!", type: "success" });
       setContent("");
       load();
     } catch (e) {
@@ -456,7 +457,7 @@ function IncidentSection({ user }) {
       <Alert msg={msg.text} type={msg.type} />
 
       <div className="card">
-        <div className="card-title">🚨 Báo cáo sự cố mới</div>
+        <div className="card-title"><AlertTriangle size={18} color="var(--accent)" /> Báo cáo sự cố mới</div>
         <div className="form-group">
           <label>Nội dung sự cố</label>
           <textarea
@@ -467,15 +468,15 @@ function IncidentSection({ user }) {
           />
         </div>
         <button className="btn-primary" onClick={handleSubmit} disabled={loading}>
-          {loading ? "Đang gửi..." : "🚨 Gửi báo cáo"}
+          {loading ? "Đang gửi..." : <><AlertTriangle size={18} color="var(--accent)" /> Gửi báo cáo</>}
         </button>
       </div>
 
       <div className="card">
-        <div className="card-title">📋 Sự cố đã báo cáo</div>
+        <div className="card-title"><ClipboardList size={18} color="var(--accent)" /> Sự cố đã báo cáo</div>
         {incidents.length === 0 ? (
           <div className="empty-state">
-            <div className="emoji">✅</div>
+            <div className="emoji"><CheckCircle size={16} color="var(--accent)" /></div>
             Chưa có sự cố nào được báo cáo
           </div>
         ) : (
@@ -537,7 +538,7 @@ function HandoverSection({ user }) {
   return (
     <div>
       <div className="card">
-        <div className="card-title">🤝 Bàn giao ca</div>
+        <div className="card-title"><Handshake size={18} color="var(--accent)" /> Bàn giao ca</div>
         <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
           Xem danh sách đồng nghiệp làm cùng ca để bàn giao công việc.
         </p>
@@ -633,7 +634,7 @@ function SalarySection({ user }) {
           style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid var(--border)" }}
         />
         <button onClick={fetchSalary} className="btn-primary" style={{ padding: "6px 16px" }}>
-          🔄 Tải lại
+          <RefreshCw size={16} color="var(--accent)" /> Tải lại
         </button>
       </div>
 
@@ -672,7 +673,7 @@ function SalarySection({ user }) {
             </span>
           </div>
           <div className="salary-item" style={{ gridColumn: "span 2", borderTop: "2px solid var(--border)", paddingTop: 12 }}>
-            <span className="label" style={{ fontSize: 18, fontWeight: 700 }}>💰 Lương thực nhận</span>
+            <span className="label" style={{ fontSize: 18, fontWeight: 700 }}><Banknote size={18} color="var(--accent)" /> Lương thực nhận</span>
             <span className="value" style={{ fontSize: 24, fontWeight: 700, color: "var(--primary)" }}>
               {salaryData.netSalary.toLocaleString("vi-VN")} ₫
             </span>
@@ -703,11 +704,11 @@ export default function StaffDashboard({ user, onLogout }) {
   const pendingIncidents = incidents.filter(i => i.status === "PENDING").length;
 
   const navItems = [
-    { id: "schedule", icon: "📅", label: "Lịch làm việc" },
-    { id: "requests", icon: "📝", label: "Đơn xin nghỉ/Đổi ca" },
-    { id: "incidents", icon: "🚨", label: "Báo cáo sự cố" },
-    { id: "handover", icon: "🤝", label: "Bàn giao ca" },
-    { id: "salary", icon: "💰", label: "Lương" },
+    { id: "schedule", icon: <CalendarDays size={18} />, label: "Lịch làm việc" },
+    { id: "requests", icon: <FileText size={18} />, label: "Đơn xin nghỉ/Đổi ca" },
+    { id: "incidents", icon: <AlertTriangle size={18} />, label: "Báo cáo sự cố" },
+    { id: "handover", icon: <Handshake size={18} />, label: "Bàn giao ca" },
+    { id: "salary", icon: <BarChart3 size={18} />, label: "Báo cáo cá nhân" },
   ];
 
   const pageTitles = {
@@ -715,7 +716,7 @@ export default function StaffDashboard({ user, onLogout }) {
     requests:  { title: "Đơn xin nghỉ / Đổi ca", sub: "Gửi và theo dõi trạng thái đơn" },
     incidents: { title: "Báo cáo sự cố",         sub: "Mất thẻ, không đủ chỗ, hỏng thiết bị..." },
     handover:  { title: "Bàn giao ca",           sub: "Xem đồng nghiệp cùng ca" },
-    salary:    { title: "Bảng lương",            sub: "Xem thu nhập của bạn theo tháng" },
+    salary:    { title: "Báo cáo cá nhân",            sub: "Theo dõi chấm công và ước tính lương cá nhân" },
   };
 
   return (
@@ -723,8 +724,7 @@ export default function StaffDashboard({ user, onLogout }) {
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <h2>🚗 NhàXe</h2>
-          <p>Hệ thống quản lý</p>
+          <h2>Nhân Viên</h2>
         </div>
         <nav className="sidebar-nav">
           {navItems.map(item => (
@@ -738,10 +738,6 @@ export default function StaffDashboard({ user, onLogout }) {
             </button>
           ))}
         </nav>
-        <div className="sidebar-user">
-          <div className="name">{user.fullName}</div>
-          <span className="role-badge">Nhân viên</span>
-        </div>
         <button className="btn-logout" onClick={onLogout}>Đăng xuất</button>
       </aside>
 
@@ -756,21 +752,21 @@ export default function StaffDashboard({ user, onLogout }) {
         {tab === "schedule" && (
           <div className="stat-grid">
             <div className="stat-card">
-              <div className="stat-icon blue">📝</div>
+              <div className="stat-icon blue"><FileText size={24} /></div>
               <div>
                 <div className="stat-label">Đơn chờ duyệt</div>
                 <div className="stat-value">{pendingRequests}</div>
               </div>
             </div>
             <div className="stat-card">
-              <div className="stat-icon yellow">🚨</div>
+              <div className="stat-icon yellow"><AlertTriangle size={24} /></div>
               <div>
                 <div className="stat-label">Sự cố chờ xử lý</div>
                 <div className="stat-value">{pendingIncidents}</div>
               </div>
             </div>
             <div className="stat-card">
-              <div className="stat-icon green">👤</div>
+              <div className="stat-icon green"><User size={24} /></div>
               <div>
                 <div className="stat-label">Nhân viên</div>
                 <div className="stat-value" style={{ fontSize: 14 }}>{user.fullName}</div>

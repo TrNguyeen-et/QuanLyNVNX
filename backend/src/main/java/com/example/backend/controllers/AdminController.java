@@ -6,6 +6,7 @@ import com.example.backend.models.User;
 import com.example.backend.repositories.AuditLogRepository;
 import com.example.backend.repositories.UserRepository;
 import com.example.backend.services.AdminService;
+import com.example.backend.services.EmailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -27,6 +28,7 @@ public class AdminController {
     @Autowired private UserRepository userRepository;
     @Autowired private AuditLogRepository auditLogRepository;
     @Autowired private AdminService adminService; // Inject Service
+    @Autowired private EmailService emailService;
 
     private void log(String action, String actor) {
         AuditLog log = new AuditLog();
@@ -59,6 +61,15 @@ public class AdminController {
         }
         User saved = userRepository.save(u);
         log("Tạo tài khoản: " + u.getUsername(), "ADMIN");
+
+        if (u.getEmail() != null && !u.getEmail().trim().isEmpty()) {
+            emailService.sendWelcomeEmail(
+                u.getEmail(),
+                u.getFullName(),
+                u.getUsername(),
+                u.getPassword()
+            );
+        }
 
         Map<String, Object> r = new HashMap<>();
         r.put("status", "success");
