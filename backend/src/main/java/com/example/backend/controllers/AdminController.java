@@ -5,6 +5,9 @@ import com.example.backend.models.SystemConfig;
 import com.example.backend.models.User;
 import com.example.backend.repositories.AuditLogRepository;
 import com.example.backend.repositories.UserRepository;
+import com.example.backend.repositories.AuditLogRepository;
+import com.example.backend.repositories.EmployeeImportDraftRepository;
+import com.example.backend.repositories.SystemConfigRepository;
 import com.example.backend.services.AdminService;
 import com.example.backend.services.EmailService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +30,8 @@ public class AdminController {
 
     @Autowired private UserRepository userRepository;
     @Autowired private AuditLogRepository auditLogRepository;
+    @Autowired private EmployeeImportDraftRepository draftRepository;
+    @Autowired private SystemConfigRepository systemConfigRepository;
     @Autowired private AdminService adminService; // Inject Service
     @Autowired private EmailService emailService;
 
@@ -85,6 +90,15 @@ public class AdminController {
             user.setFullName(u.getFullName());
             user.setRole(u.getRole());
             user.setStatus(u.getStatus());
+            if (u.getPassword() != null && !u.getPassword().trim().isEmpty()) {
+                user.setPassword(u.getPassword());
+            }
+            if (u.getSalary() != null) user.setSalary(u.getSalary());
+            if (u.getWorkShift() != null) user.setWorkShift(u.getWorkShift());
+            if (u.getWorkDays() != null) user.setWorkDays(u.getWorkDays());
+            if (u.getPosition() != null) user.setPosition(u.getPosition());
+            if (u.getEmail() != null) user.setEmail(u.getEmail());
+            
             log("Cập nhật tài khoản ID: " + id, "ADMIN");
             return userRepository.save(user);
         }).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"));
@@ -100,25 +114,7 @@ public class AdminController {
         return r;
     }
 
-    // ==================== CẤU HÌNH HỆ THỐNG (YÊU CẦU PHI CHỨC NĂNG) ====================
 
-    /**
-     * Lấy danh sách cấu hình hệ thống (Lớn nhất là mức phạt đi trễ)
-     */
-    @GetMapping("/configs")
-    public List<SystemConfig> getConfigs() {
-        return adminService.getAllConfigs();
-    }
-
-    /**
-     * Cập nhật cấu hình hệ thống (Ví dụ: đổi tiền phạt từ 20k thành 30k mà không cần sửa code)
-     */
-    @PutMapping("/configs/{key}")
-    public SystemConfig updateConfig(@PathVariable String key, @RequestBody Map<String, String> body) {
-        String newValue = body.get("configValue");
-        log("Thay đổi cấu hình " + key + " thành " + newValue, "ADMIN");
-        return adminService.updateConfig(key, newValue);
-    }
 
     // ==================== SAO LƯU & PHỤC HỒI DỮ LIỆU ====================
 
@@ -165,5 +161,45 @@ public class AdminController {
         Long adminId = 1L;
         adminService.rejectImports(draftIds, adminId, reason);
         return Map.of("message", "Đã từ chối " + draftIds.size() + " hồ sơ.");
+    }
+
+    // ==================== BẢO TRÌ HỆ THỐNG ====================
+
+    @GetMapping("/maintenance/status")
+    public Map<String, Object> getMaintenanceStatus() {
+        boolean isMaintenance = systemConfigRepository.findById("MAINTENANCE_MODE")
+                .map(config -> "true".equalsIgnoreCase(config.getConfigValue()))
+                .orElse(false);
+        return Map.of("maintenanceMode", isMaintenance);
+    }
+
+    @PostMapping("/maintenance/toggle")
+    public Map<String, Object> toggleMaintenance() {
+        SystemConfig config = systemConfigRepository.findById("MAINTENANCE_MODE").orElse(new SystemConfig());
+        config.setConfigKey("MAINTENANCE_MODE");
+        boolean current = "true".equalsIgnoreCase(config.getConfigValue());
+        config.setConfigValue(current ? "false" : "true");
+        config.setDescription("Trạng thái bảo trì hệ thống");
+        systemConfigRepository.save(config);
+        
+        log(current ? "Tắt chế độ bảo trì" : "Bật chế độ bảo trì", "ADMIN");
+        return Map.of(
+            "maintenanceMode", !current,
+            "message", !current ? "Đã bật chế độ bảo trì!" : "Đã tắt chế độ bảo trì!"
+        );
+    }
+
+    @PostMapping("/maintenance/clear-logs")
+    public Map<String, String> clearOldLogs() {
+        auditLogRepository.deleteByTimestampBefore(LocalDateTime.now().minusDays(30));
+        log("Dọn dẹp nhật ký hệ thống (cũ hơn 30 ngày)", "ADMIN");
+        return Map.of("message", "Đã dọn dẹp nhật ký cũ thành công!");
+    }
+
+    @PostMapping("/maintenance/clear-drafts")
+    public Map<String, String> clearDrafts() {
+        draftRepository.deleteByStatus("REJECTED");
+        log("Dọn dẹp hồ sơ nháp bị từ chối", "ADMIN");
+        return Map.of("message", "Đã dọn dẹp hồ sơ rác thành công!");
     }
 }

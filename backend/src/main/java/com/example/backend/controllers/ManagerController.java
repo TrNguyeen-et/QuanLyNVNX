@@ -262,4 +262,27 @@ public class ManagerController {
         }
         return alerts;
     }
+
+    @Autowired private com.example.backend.services.AdminService adminService;
+    @Autowired private com.example.backend.repositories.AuditLogRepository auditLogRepository;
+
+    private void log(String action, String actor) {
+        AuditLog log = new AuditLog();
+        log.setAction(action);
+        log.setActor(actor);
+        log.setTimestamp(java.time.LocalDateTime.now());
+        auditLogRepository.save(log);
+    }
+    
+    @GetMapping("/configs")
+    public List<SystemConfig> getConfigs() {
+        return adminService.getAllConfigs();
+    }
+
+    @PutMapping("/configs/{key}")
+    public SystemConfig updateConfig(@PathVariable String key, @RequestBody Map<String, String> body) {
+        String newValue = body.get("configValue");
+        log("Thay đổi cấu hình " + key + " thành " + newValue, "MANAGER");
+        return adminService.updateConfig(key, newValue);
+    }
 }

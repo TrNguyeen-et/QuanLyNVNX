@@ -1,6 +1,7 @@
 // src/pages/admin/AdminDashboard.jsx
 import { useState, useEffect, useCallback } from "react";
 import "./AdminDashboard.css";
+import UserProfile from "../../components/UserProfile";
 import { BarChart2, Car, CheckCircle, ClipboardList, Download, Edit, Folder, HardHat, Home, Inbox, Lightbulb, Lock, Pin, PlusCircle, RefreshCcw, RefreshCw, Save, Search, Settings, Trash2, Users, XCircle } from "lucide-react";
 
 const API = "http://localhost:8080/api/admin";
@@ -48,12 +49,12 @@ function OverviewSection() {
       </div>
 
       <div className="card">
-        <div className="card-title"><BarChart2 size={18} color="var(--accent)" /> Phân bố vai trò</div>
+        <div className="card-title"><BarChart2 size={18} color="var(--accent)" />Phân bố vai trò</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
           {["ADMIN", "MANAGER", "ACCOUNTANT", "STAFF"].map(role => (
             <div key={role} style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px", textAlign: "center" }}>
               <div style={{ fontSize: 28, marginBottom: 6 }}>
-                {role === "ADMIN" ? <Lock size={16} color="var(--accent)" /> : role === "MANAGER" ? <ClipboardList size={18} color="var(--accent)" /> : role === "ACCOUNTANT" ? <BarChart2 size={16} color="var(--accent)" /> : <HardHat size={16} color="var(--accent)" />}
+                {role === "ADMIN" ? <Lock size={16} color="var(--accent)" />: role === "MANAGER" ? <ClipboardList size={18} color="var(--accent)" />: role === "ACCOUNTANT" ? <BarChart2 size={16} color="var(--accent)" />: <HardHat size={16} color="var(--accent)" />}
               </div>
               <div style={{ fontSize: 22, fontWeight: 700 }}>{byRole(role)}</div>
               <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{ROLE_LABEL[role] || role}</div>
@@ -144,12 +145,10 @@ function AccountSection() {
 
   return (
     <div>
-      <Alert msg={msg.text} type={msg.type} />
-
-      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+      <Alert msg={msg.text} type={msg.type} /> <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
         <input
           style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", padding: "9px 12px", fontSize: 13, fontFamily: "var(--font)", flex: 1, minWidth: 180 }}
-          placeholder=<><Search size={16} color="var(--accent)" /> Tìm kiếm tên, tài khoản...</>
+          placeholder=<><Search size={16} color="var(--accent)" />Tìm kiếm tên, tài khoản...</>
           value={search} onChange={e => setSearch(e.target.value)}
         />
         <select
@@ -167,7 +166,7 @@ function AccountSection() {
 
       {showForm && (
         <div className="card" style={{ background: "var(--surface2)", marginBottom: 16, border: "1px solid var(--accent)" }}>
-          <div className="card-title">{editingId ? <><Edit size={16} color="var(--accent)" /> Chỉnh sửa tài khoản</> : <><PlusCircle size={18} color="var(--accent)" /> Tạo tài khoản mới</>}</div>
+          <div className="card-title">{editingId ? <><Edit size={16} color="var(--accent)" />Chỉnh sửa tài khoản</> : <><PlusCircle size={18} color="var(--accent)" />Tạo tài khoản mới</>}</div>
           <div className="form-row">
             <div className="form-group">
               <label>Tài khoản *</label>
@@ -218,7 +217,7 @@ function AccountSection() {
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             <button className="btn-primary" onClick={handleSubmit} disabled={loading}>
-              {loading ? "Đang lưu..." : editingId ? <><Save size={16} color="var(--accent)" /> Lưu thay đổi</> : <><CheckCircle size={16} color="var(--accent)" /> Tạo tài khoản</>}
+              {loading ? "Đang lưu..." : editingId ? <><Save size={16} color="var(--accent)" />Lưu thay đổi</> : <><CheckCircle size={16} color="var(--accent)" />Tạo tài khoản</>}
             </button>
             <button className="btn-cancel-sm" onClick={closeForm}>Hủy</button>
           </div>
@@ -226,7 +225,7 @@ function AccountSection() {
       )}
 
       <div className="card">
-        <div className="card-title"><Users size={18} color="var(--accent)" /> Danh sách tài khoản ({filtered.length})</div>
+        <div className="card-title"><Users size={18} color="var(--accent)" />Danh sách tài khoản ({filtered.length})</div>
         {filtered.length === 0 ? (
           <div className="empty-state"><div className="emoji"><Search size={16} color="var(--accent)" /></div>Không tìm thấy tài khoản nào</div>
         ) : (
@@ -350,18 +349,17 @@ function ImportSection() {
 
   return (
     <div>
-      <Alert msg={msg.text} type={msg.type} />
-      <div className="card">
-        <div className="card-title"><Download size={16} color="var(--accent)" /> Hồ sơ nhân viên chờ duyệt ({drafts.length})</div>
+      <Alert msg={msg.text} type={msg.type} /> <div className="card">
+        <div className="card-title"><Download size={16} color="var(--accent)" />Hồ sơ nhân viên chờ duyệt ({drafts.length})</div>
         <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
           <button className="btn-primary" onClick={handleApprove} disabled={loading || selectedIds.length === 0}>
-            <CheckCircle size={16} color="var(--accent)" /> Duyệt đã chọn
+            <CheckCircle size={16} color="var(--accent)" />Duyệt đã chọn
           </button>
           <button className="btn-danger" onClick={handleReject} disabled={loading || selectedIds.length === 0}>
-            <XCircle size={16} color="var(--accent)" /> Từ chối đã chọn
+            <XCircle size={16} color="var(--accent)" />Từ chối đã chọn
           </button>
           <button className="btn-cancel-sm" onClick={loadDrafts} disabled={loading}>
-            <RefreshCw size={16} color="var(--accent)" /> Làm mới
+            <RefreshCw size={16} color="var(--accent)" />Làm mới
           </button>
         </div>
 
@@ -440,10 +438,10 @@ function LogSection() {
   return (
     <div>
       <div className="card">
-        <div className="card-title"><ClipboardList size={18} color="var(--accent)" /> Nhật ký hệ thống ({filtered.length})</div>
+        <div className="card-title"><ClipboardList size={18} color="var(--accent)" />Nhật ký hệ thống ({filtered.length})</div>
         <input
           style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", padding: "9px 12px", fontSize: 13, fontFamily: "var(--font)", width: "100%", marginBottom: 16 }}
-          placeholder=<><Search size={16} color="var(--accent)" /> Tìm kiếm hành động...</>
+          placeholder=<><Search size={16} color="var(--accent)" />Tìm kiếm hành động...</>
           value={search} onChange={e => setSearch(e.target.value)}
         />
         {loading ? (
@@ -504,11 +502,10 @@ function ConfigSection() {
 
   return (
     <div>
-      <Alert msg={msg.text} type={msg.type} />
-      <div className="card">
-        <div className="card-title"><Settings size={18} color="var(--accent)" /> Cấu hình hệ thống</div>
+      <Alert msg={msg.text} type={msg.type} /> <div className="card">
+        <div className="card-title"><Settings size={18} color="var(--accent)" />Cấu hình hệ thống</div>
         <div className="alert info" style={{ marginBottom: 16 }}>
-          <Lightbulb size={16} color="var(--accent)" /> Thay đổi cấu hình tại đây sẽ áp dụng ngay lập tức mà không cần sửa code hoặc khởi động lại.
+          <Lightbulb size={16} color="var(--accent)" />Thay đổi cấu hình tại đây sẽ áp dụng ngay lập tức mà không cần sửa code hoặc khởi động lại.
         </div>
         {configs.length === 0 ? (
           <div className="empty-state"><div className="emoji"><Settings size={18} color="var(--accent)" /></div>Không có cấu hình nào</div>
@@ -585,22 +582,20 @@ function BackupSection() {
 
   return (
     <div>
-      <Alert msg={msg.text} type={msg.type} />
-
-      <div className="card">
-        <div className="card-title"><Save size={16} color="var(--accent)" /> Sao lưu dữ liệu</div>
+      <Alert msg={msg.text} type={msg.type} /> <div className="card">
+        <div className="card-title"><Save size={16} color="var(--accent)" />Sao lưu dữ liệu</div>
         <div className="backup-info">
           Sao lưu toàn bộ dữ liệu hệ thống (tài khoản, ca làm, phân công, chấm công, đơn nghỉ, sự cố) thành file JSON và tải về máy.
         </div>
         <div className="backup-actions">
           <button className="btn-success" onClick={handleBackup} disabled={loading}>
-            {loading ? "Đang xử lý..." : <><Download size={16} color="var(--accent)" /> Tải file sao lưu (.json)</>}
+            {loading ? "Đang xử lý..." : <><Download size={16} color="var(--accent)" />Tải file sao lưu (.json)</>}
           </button>
         </div>
       </div>
 
       <div className="card">
-        <div className="card-title"><RefreshCcw size={18} color="var(--accent)" /> Phục hồi dữ liệu</div>
+        <div className="card-title"><RefreshCcw size={18} color="var(--accent)" />Phục hồi dữ liệu</div>
         <div className="backup-info">
           Dán nội dung file JSON (đã tải về trước đó) vào ô bên dưới rồi nhấn Phục hồi.
           <strong style={{ color: "var(--danger)" }}> Lưu ý: Thao tác này sẽ ghi đè dữ liệu hiện tại!</strong>
@@ -612,7 +607,7 @@ function BackupSection() {
           style={{ width: "100%", minHeight: 140, background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", padding: 12, fontSize: 13, fontFamily: "monospace", resize: "vertical", marginBottom: 12 }}
         />
         <button className="btn-danger" onClick={handleRestore} disabled={loading}>
-          {loading ? "Đang phục hồi..." : <><RefreshCcw size={18} color="var(--accent)" /> Phục hồi dữ liệu</>}
+          {loading ? "Đang phục hồi..." : <><RefreshCcw size={18} color="var(--accent)" />Phục hồi dữ liệu</>}
         </button>
       </div>
     </div>
@@ -624,7 +619,7 @@ export default function AdminDashboard({ user, onLogout }) {
   const [tab, setTab] = useState("overview");
 
   const navItems = [
-    { id: "overview", icon: <Home size={18} />, label: "Báo cáo hệ thống" },
+    { id: "overview", icon: <Home size={18} />, label: "Tổng quan" },
     { id: "accounts", icon: <Users size={18} />, label: "Tài khoản" },
     { id: "imports",  icon: <Download size={18} />, label: "Duyệt nhân viên" },
     { id: "logs",     icon: <ClipboardList size={18} />, label: "Nhật ký hệ thống" },
@@ -633,7 +628,7 @@ export default function AdminDashboard({ user, onLogout }) {
   ];
 
   const pageTitles = {
-    overview:  { title: "Báo cáo hệ thống",      sub: "Thống kê tổng quan, chào mừng " + user.fullName },
+    overview:  { title: "Tổng quan",      sub: "Thống kê tổng quan, chào mừng " + user.fullName },
     accounts:  { title: "Quản lý tài khoản",        sub: "Thêm, sửa, xóa và cấp quyền tài khoản" },
     imports:   { title: "Duyệt nhân viên",          sub: "Xem và phê duyệt hồ sơ nhập từ Excel" },
     logs:      { title: "Nhật ký hệ thống",         sub: "Ghi lại toàn bộ hành động trong hệ thống" },
@@ -644,8 +639,9 @@ export default function AdminDashboard({ user, onLogout }) {
   return (
     <div className="admin-layout">
       <aside className="sidebar">
-        <div className="sidebar-logo">
-          <h2>Admin</h2>
+        <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', padding: '0 16px 24px' }}>
+          <UserProfile user={user} onLogout={onLogout} />
+          <h2 style={{ marginLeft: 8 }}>Admin</h2>
         </div>
         <nav className="sidebar-nav">
           {navItems.map(item => (

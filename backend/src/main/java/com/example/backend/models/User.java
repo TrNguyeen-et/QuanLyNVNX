@@ -2,7 +2,8 @@ package com.example.backend.models;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import com.fasterxml.jackson.annotation.JsonIgnore; // Import chính xác của JsonIgnore
+import com.fasterxml.jackson.annotation.JsonProperty; // Thêm import này
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "users")
@@ -14,7 +15,7 @@ public class User {
     
     private String username;
     
-    @JsonIgnore // Bảo mật: Không cho mật khẩu trả về khi gọi API
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY) // Chỉ cho phép ghi (để nhận mật khẩu lúc tạo/sửa)
     private String password;
     
     private String role; // ADMIN, MANAGER, STAFF

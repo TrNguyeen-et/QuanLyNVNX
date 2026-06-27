@@ -1,6 +1,7 @@
 // src/pages/manager/ManagerDashboard.jsx
 import { useState, useEffect, useCallback } from "react";
 import "./ManagerDashboard.css";
+import UserProfile from "../../components/UserProfile";
 import { AlertTriangle, Banknote, BarChart2, BarChart3, CalendarDays, Car, Check, CheckCircle, ClipboardList, Edit, FileText, Home, Inbox, PartyPopper, PlusCircle, RefreshCw, Sun, Ticket, Users , Upload, Download, X} from "lucide-react";
 
 const API = "http://localhost:8080/api";
@@ -39,7 +40,7 @@ function OverviewSection({ stats, alerts, onRefreshAlerts }) {
 
       {alerts.length > 0 && (
         <div className="absent-banner">
-          <h4><AlertTriangle size={16} color="var(--accent)" /> Cảnh báo vắng mặt — {alerts.length} nhân viên chưa check-in</h4>
+          <h4><AlertTriangle size={16} color="var(--accent)" />Cảnh báo vắng mặt — {alerts.length} nhân viên chưa check-in</h4>
           {alerts.map((a, i) => (
             <div className="absent-item" key={i}>
               <strong>{a.staffName}</strong> · {a.shiftName} bắt đầu {a.startTime} — {a.message}
@@ -50,7 +51,7 @@ function OverviewSection({ stats, alerts, onRefreshAlerts }) {
 
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
         <button className="btn-primary" onClick={onRefreshAlerts} style={{ fontSize: 12, padding: "7px 14px" }}>
-          <RefreshCw size={16} color="var(--accent)" /> Kiểm tra vắng mặt
+          <RefreshCw size={16} color="var(--accent)" />Kiểm tra vắng mặt
         </button>
       </div>
     </div>
@@ -105,9 +106,8 @@ function ShiftSection() {
 
   return (
     <div>
-      <Alert msg={msg.text} type={msg.type} />
-      <div className="card">
-        <div className="card-title"><PlusCircle size={18} color="var(--accent)" /> Phân ca mới</div>
+      <Alert msg={msg.text} type={msg.type} /> <div className="card">
+        <div className="card-title"><PlusCircle size={18} color="var(--accent)" />Phân ca mới</div>
         <div className="form-row">
           <div className="form-group">
             <label>Nhân viên</label>
@@ -139,7 +139,7 @@ function ShiftSection() {
       </div>
 
       <div className="card">
-        <div className="card-title"><ClipboardList size={18} color="var(--accent)" /> Lịch phân ca ngày</div>
+        <div className="card-title"><ClipboardList size={18} color="var(--accent)" />Lịch phân ca ngày</div>
         <div className="date-filter">
           <input type="date" value={date} onChange={e => setDate(e.target.value)} />
         </div>
@@ -155,7 +155,7 @@ function ShiftSection() {
                     <td><strong>{a.user?.fullName}</strong></td>
                     <td>{a.shift?.shiftName}</td>
                     <td style={{ whiteSpace: "nowrap" }}>{a.shift?.startTime} – {a.shift?.endTime}</td>
-                    <td>{a.position === "KIEM_SOAT_VE" ? <><Ticket size={16} color="var(--accent)" /> Kiểm soát vé</> : <><Car size={16} color="var(--accent)" /> Xếp xe</>}</td>
+                    <td>{a.position === "KIEM_SOAT_VE" ? <><Ticket size={16} color="var(--accent)" />Kiểm soát vé</> : <><Car size={16} color="var(--accent)" />Xếp xe</>}</td>
                     <td><span className={`badge ${(a.status || "").toLowerCase()}`}>{a.status}</span></td>
                     <td><button className="btn-icon" onClick={() => handleDelete(a.id)}><X size={16} color="var(--accent)" /></button></td>
                   </tr>
@@ -192,9 +192,8 @@ function RequestSection() {
 
   return (
     <div>
-      <Alert msg={msg.text} type={msg.type} />
-      <div className="card">
-        <div className="card-title"><FileText size={18} color="var(--accent)" /> Đơn chờ duyệt ({requests.length})</div>
+      <Alert msg={msg.text} type={msg.type} /> <div className="card">
+        <div className="card-title"><FileText size={18} color="var(--accent)" />Đơn chờ duyệt ({requests.length})</div>
         {requests.length === 0 ? (
           <div className="empty-state"><div className="emoji"><CheckCircle size={16} color="var(--accent)" /></div>Không có đơn nào đang chờ</div>
         ) : (
@@ -205,13 +204,13 @@ function RequestSection() {
                 {requests.map(r => (
                   <tr key={r.id}>
                     <td><strong>{r.user?.fullName}</strong><div style={{ fontSize: 11, color: "var(--text-muted)" }}>{r.user?.username}</div></td>
-                    <td>{r.requestType === "LEAVE" ? <><Sun size={16} color="var(--accent)" /> Nghỉ phép</> : <><RefreshCw size={16} color="var(--accent)" /> Đổi ca</>}</td>
+                    <td>{r.requestType === "LEAVE" ? <><Sun size={16} color="var(--accent)" />Nghỉ phép</> : <><RefreshCw size={16} color="var(--accent)" />Đổi ca</>}</td>
                     <td style={{ whiteSpace: "nowrap" }}>{fmtDate(r.targetDate)}</td>
                     <td style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.reason}</td>
                     <td>{r.substituteUser?.fullName || "—"}</td>
                     <td style={{ display: "flex", gap: 6 }}>
-                      <button className="btn-approve" onClick={() => review(r.id, true)}><Check size={16} color="var(--accent)" /> Duyệt</button>
-                      <button className="btn-reject"  onClick={() => review(r.id, false)}><X size={16} color="var(--accent)" /> Từ chối</button>
+                      <button className="btn-approve" onClick={() => review(r.id, true)}><Check size={16} color="var(--accent)" />Duyệt</button>
+                      <button className="btn-reject"  onClick={() => review(r.id, false)}><X size={16} color="var(--accent)" />Từ chối</button>
                     </td>
                   </tr>
                 ))}
@@ -246,9 +245,8 @@ function IncidentSection() {
 
   return (
     <div>
-      <Alert msg={msg.text} type={msg.type} />
-      <div className="card">
-        <div className="card-title"><AlertTriangle size={18} color="var(--accent)" /> Sự cố chờ xử lý ({incidents.length})</div>
+      <Alert msg={msg.text} type={msg.type} /> <div className="card">
+        <div className="card-title"><AlertTriangle size={18} color="var(--accent)" />Sự cố chờ xử lý ({incidents.length})</div>
         {incidents.length === 0 ? (
           <div className="empty-state"><div className="emoji"><CheckCircle size={16} color="var(--accent)" /></div>Không có sự cố nào</div>
         ) : (
@@ -264,7 +262,7 @@ function IncidentSection() {
                     <td><span className={`badge ${inc.status?.toLowerCase()}`}>{inc.status === "PENDING" ? "Chờ xử lý" : "Đã xử lý"}</span></td>
                     <td>
                       {inc.status === "PENDING" && (
-                        <button className="btn-resolve" onClick={() => resolve(inc.id)}><Check size={16} color="var(--accent)" /> Xử lý</button>
+                        <button className="btn-resolve" onClick={() => resolve(inc.id)}><Check size={16} color="var(--accent)" />Xử lý</button>
                       )}
                     </td>
                   </tr>
@@ -296,12 +294,12 @@ function ReportSection() {
     <div>
       <div className="card-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
         <div className="card" style={{ background: "var(--surface2)", border: "1px solid var(--accent)", borderRadius: 10 }}>
-          <div className="card-title" style={{ color: "var(--accent)" }}><FileText size={18} /> Đơn xin nghỉ chờ duyệt</div>
+          <div className="card-title" style={{ color: "var(--accent)" }}><FileText size={18} />Đơn xin nghỉ chờ duyệt</div>
           <div style={{ fontSize: 32, fontWeight: "bold" }}>{stats.pendingRequests || 0}</div>
           <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>Nhân viên đang chờ phê duyệt đổi ca/xin phép</div>
         </div>
         <div className="card" style={{ background: "var(--surface2)", border: "1px solid var(--danger)", borderRadius: 10 }}>
-          <div className="card-title" style={{ color: "var(--danger)" }}><AlertTriangle size={18} /> Sự cố chưa giải quyết</div>
+          <div className="card-title" style={{ color: "var(--danger)" }}><AlertTriangle size={18} />Sự cố chưa giải quyết</div>
           <div style={{ fontSize: 32, fontWeight: "bold", color: "var(--danger)" }}>{stats.pendingIncidents || 0}</div>
           <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>Báo cáo từ nhân viên cần xử lý ngay</div>
         </div>
@@ -309,12 +307,12 @@ function ReportSection() {
       
       <div className="card-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div className="card" style={{ background: "var(--surface2)", border: "1px solid var(--success)", borderRadius: 10 }}>
-          <div className="card-title" style={{ color: "var(--success)" }}><CalendarDays size={18} /> Phân ca hôm nay</div>
+          <div className="card-title" style={{ color: "var(--success)" }}><CalendarDays size={18} />Phân ca hôm nay</div>
           <div style={{ fontSize: 32, fontWeight: "bold", color: "var(--success)" }}>{stats.todayAssignments || 0}</div>
           <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>Lượt nhân viên được phân công làm việc hôm nay</div>
         </div>
         <div className="card" style={{ background: "var(--surface2)", border: "1px solid var(--warning)", borderRadius: 10 }}>
-          <div className="card-title" style={{ color: "var(--warning)" }}><Users size={18} /> Vắng mặt / Chưa check-in</div>
+          <div className="card-title" style={{ color: "var(--warning)" }}><Users size={18} />Vắng mặt / Chưa check-in</div>
           <div style={{ fontSize: 32, fontWeight: "bold", color: "var(--warning)" }}>{alerts.length}</div>
           <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>Nhân viên đã đến giờ ca làm nhưng chưa check-in</div>
         </div>
@@ -400,17 +398,15 @@ function StaffSection() {
 
   return (
     <div>
-      <Alert msg={msg.text} type={msg.type} />
-      
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-title"><Upload size={18} color="var(--accent)" /> Import nhân viên từ Excel</div>
+      <Alert msg={msg.text} type={msg.type} /> <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-title"><Upload size={18} color="var(--accent)" />Import nhân viên từ Excel</div>
           <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '12px' }}>
               Chọn file Excel (.xlsx hoặc .xls) có cấu trúc: <strong>Họ tên, Username, Email, Lương, Ca làm, Ngày làm</strong>
           </p>
           <form onSubmit={handleUpload} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <input id="fileInput" type="file" accept=".xlsx,.xls" onChange={(e) => setFile(e.target.files[0])} disabled={uploading} style={{background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px'}} />
               <button type="submit" className="btn-primary" style={{ width: 'fit-content' }} disabled={uploading}>
-                  {uploading ? "Đang tải lên..." : <><Upload size={18} color="var(--accent)" /> Upload và lưu hồ sơ</>}
+                  {uploading ? "Đang tải lên..." : <><Upload size={18} color="var(--accent)" />Upload và lưu hồ sơ</>}
               </button>
               {uploadMsg.text && <div className={`alert ${uploadMsg.type}`}>{uploadMsg.text}</div>}
           </form>
@@ -418,7 +414,7 @@ function StaffSection() {
 
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <div><PlusCircle size={18} color="var(--accent)" /> Thêm nhân viên thủ công (Chờ Admin duyệt)</div>
+            <div><PlusCircle size={18} color="var(--accent)" />Thêm nhân viên thủ công (Chờ Admin duyệt)</div>
             <button className="btn-cancel-sm" onClick={() => setShowDraftForm(!showDraftForm)}>
                 {showDraftForm ? "Ẩn form" : "Mở form"}
             </button>
@@ -468,7 +464,7 @@ function StaffSection() {
                     </div>
                 </div>
                 <button type="submit" className="btn-primary" disabled={drafting}>
-                    {drafting ? "Đang gửi..." : <><CheckCircle size={16} color="var(--accent)" /> Gửi yêu cầu duyệt</>}
+                    {drafting ? "Đang gửi..." : <><CheckCircle size={16} color="var(--accent)" />Gửi yêu cầu duyệt</>}
                 </button>
                 {draftMsg.text && <div className={`alert ${draftMsg.type}`} style={{marginTop: 10}}>{draftMsg.text}</div>}
             </form>
@@ -476,10 +472,10 @@ function StaffSection() {
         </div>
 
       <div className="card">
-        <div className="card-title"><Users size={18} color="var(--accent)" /> Danh sách nhân viên ({staff.length})</div>
+        <div className="card-title"><Users size={18} color="var(--accent)" />Danh sách nhân viên ({staff.length})</div>
         {editing && (
           <div className="card" style={{ background: "var(--surface2)", marginBottom: 16 }}>
-            <div className="card-title"><Edit size={16} color="var(--accent)" /> Chỉnh sửa: {editing.fullName}</div>
+            <div className="card-title"><Edit size={16} color="var(--accent)" />Chỉnh sửa: {editing.fullName}</div>
             <div className="form-row">
               <div className="form-group">
                 <label>Họ tên</label>
@@ -579,8 +575,9 @@ export default function ManagerDashboard({ user, onLogout }) {
   return (
     <div className="mgr-layout">
       <aside className="sidebar">
-        <div className="sidebar-logo">
-          <h2>Quản Lý</h2>
+        <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', padding: '0 16px 24px' }}>
+          <UserProfile user={user} onLogout={onLogout} />
+          <h2 style={{ marginLeft: 8 }}>Quản Lý</h2>
         </div>
         <nav className="sidebar-nav">
           {navItems.map(item => (
@@ -602,10 +599,10 @@ export default function ManagerDashboard({ user, onLogout }) {
 
         {tab === "overview"  && <OverviewSection stats={stats} alerts={alerts} onRefreshAlerts={loadAlerts} />}
         {tab === "shifts"    && <ShiftSection />}
-        { tab === "requests"  && <RequestSection /> }
-        { tab === "incidents" && <IncidentSection /> }
-        { tab === "report"    && <ReportSection /> }
-        { tab === "staff"     && <StaffSection /> }
+        { tab === "requests"  && <RequestSection />}
+        { tab === "incidents" && <IncidentSection />}
+        { tab === "report"    && <ReportSection />}
+        { tab === "staff"     && <StaffSection />}
       </main>
     </div>
   );

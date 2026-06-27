@@ -2,7 +2,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { getSalary } from "../../services/api";
 import "./StaffDashboard.css";
-import { AlertTriangle, Banknote, BarChart3, CalendarDays, Car, CheckCircle, ClipboardList, FileText, Flag, Handshake, Inbox, RefreshCw, User } from "lucide-react";
+import { AlertTriangle, Banknote, BarChart3, CalendarDays, Car, CheckCircle, ClipboardList, FileText, Flag, Handshake, Inbox, RefreshCw, User, Home } from "lucide-react";
+import UserProfile from "../../components/UserProfile";
 
 const API = "http://localhost:8080/api";
 const DAYS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
@@ -169,10 +170,8 @@ function ScheduleSection({ user }) {
 
       {selectedDay && (
         <div className="shift-detail">
-          <h4><ClipboardList size={18} color="var(--accent)" /> Chi tiết ngày {selectedDay}/{month}/{year}</h4>
-          <Alert msg={msg.text} type={msg.type} />
-
-          {!selectedAssignment ? (
+          <h4><ClipboardList size={18} color="var(--accent)" />Chi tiết ngày {selectedDay}/{month}/{year}</h4>
+          <Alert msg={msg.text} type={msg.type} />{!selectedAssignment ? (
             <div className="empty-state" style={{ padding: "20px" }}>
               Không có ca làm trong ngày này
             </div>
@@ -225,14 +224,14 @@ function ScheduleSection({ user }) {
                   onClick={handleCheckIn}
                   disabled={!!(attendance?.checkInTime)}
                 >
-                  <CheckCircle size={16} color="var(--accent)" /> Check In
+                  <CheckCircle size={16} color="var(--accent)" />Check In
                 </button>
                 <button
                   className="btn-checkout"
                   onClick={handleCheckOut}
                   disabled={!(attendance?.checkInTime) || !!(attendance?.checkOutTime)}
                 >
-                  <Flag size={16} color="var(--accent)" /> Check Out
+                  <Flag size={16} color="var(--accent)" />Check Out
                 </button>
               </div>
             </>
@@ -311,11 +310,9 @@ function RequestSection({ user }) {
 
   return (
     <div>
-      <Alert msg={msg.text} type={msg.type} />
-
-      {/* Form gửi đơn */}
+      <Alert msg={msg.text} type={msg.type} />{/* Form gửi đơn */}
       <div className="card">
-        <div className="card-title"><FileText size={18} color="var(--accent)" /> Gửi đơn mới</div>
+        <div className="card-title"><FileText size={18} color="var(--accent)" />Gửi đơn mới</div>
         <div className="form-group">
           <label>Loại đơn</label>
           <select value={form.requestType} onChange={e => setForm({ ...form, requestType: e.target.value })}>
@@ -360,7 +357,7 @@ function RequestSection({ user }) {
 
       {/* Danh sách đơn */}
       <div className="card">
-        <div className="card-title"><ClipboardList size={18} color="var(--accent)" /> Đơn đã gửi</div>
+        <div className="card-title"><ClipboardList size={18} color="var(--accent)" />Đơn đã gửi</div>
         {requests.length === 0 ? (
           <div className="empty-state">
             <div className="emoji" style={{color: "var(--accent)"}}><Inbox size={48} /></div>
@@ -454,10 +451,8 @@ function IncidentSection({ user }) {
 
   return (
     <div>
-      <Alert msg={msg.text} type={msg.type} />
-
-      <div className="card">
-        <div className="card-title"><AlertTriangle size={18} color="var(--accent)" /> Báo cáo sự cố mới</div>
+      <Alert msg={msg.text} type={msg.type} /> <div className="card">
+        <div className="card-title"><AlertTriangle size={18} color="var(--accent)" />Báo cáo sự cố mới</div>
         <div className="form-group">
           <label>Nội dung sự cố</label>
           <textarea
@@ -467,13 +462,20 @@ function IncidentSection({ user }) {
             style={{ minHeight: 100 }}
           />
         </div>
-        <button className="btn-primary" onClick={handleSubmit} disabled={loading}>
-          {loading ? "Đang gửi..." : <><AlertTriangle size={18} color="var(--accent)" /> Gửi báo cáo</>}
+        <button className="btn-primary" onClick={handleSubmit} disabled={loading} style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingLeft: '40px', paddingRight: '40px' }}>
+          {loading ? "Đang gửi..." : (
+            <>
+              <span style={{ position: 'absolute', left: '16px', display: 'flex', alignItems: 'center' }}>
+                <AlertTriangle size={18} color="var(--accent)" />
+              </span>
+              <span>Gửi báo cáo</span>
+            </>
+          )}
         </button>
       </div>
 
       <div className="card">
-        <div className="card-title"><ClipboardList size={18} color="var(--accent)" /> Sự cố đã báo cáo</div>
+        <div className="card-title"><ClipboardList size={18} color="var(--accent)" />Sự cố đã báo cáo</div>
         {incidents.length === 0 ? (
           <div className="empty-state">
             <div className="emoji"><CheckCircle size={16} color="var(--accent)" /></div>
@@ -538,12 +540,11 @@ function HandoverSection({ user }) {
   return (
     <div>
       <div className="card">
-        <div className="card-title"><Handshake size={18} color="var(--accent)" /> Bàn giao ca</div>
+        <div className="card-title"><Handshake size={18} color="var(--accent)" />Bàn giao ca</div>
         <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
           Xem danh sách đồng nghiệp làm cùng ca để bàn giao công việc.
         </p>
-        <Alert msg={msg.text} type={msg.type} />
-        <div style={{ display: "flex", gap: 10, alignItems: "flex-end", marginBottom: 16 }}>
+        <Alert msg={msg.text} type={msg.type} /> <div style={{ display: "flex", gap: 10, alignItems: "flex-end", marginBottom: 16 }}>
           <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
             <label>Chọn ngày</label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} />
@@ -633,14 +634,15 @@ function SalarySection({ user }) {
           onChange={handleMonthChange}
           style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid var(--border)" }}
         />
-        <button onClick={fetchSalary} className="btn-primary" style={{ padding: "6px 16px" }}>
-          <RefreshCw size={16} color="var(--accent)" /> Tải lại
+        <button onClick={fetchSalary} className="btn-primary" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingLeft: '32px', paddingRight: '32px', paddingTop: '6px', paddingBottom: '6px' }}>
+          <span style={{ position: 'absolute', left: '12px', display: 'flex', alignItems: 'center' }}>
+            <RefreshCw size={16} color="var(--accent)" />
+          </span>
+          <span>Tải lại</span>
         </button>
       </div>
 
-      <Alert msg={msg.text} type={msg.type} />
-
-      {loading ? (
+      <Alert msg={msg.text} type={msg.type} />{loading ? (
         <div className="loading">Đang tải...</div>
       ) : salaryData ? (
         <div className="salary-result" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
@@ -673,7 +675,7 @@ function SalarySection({ user }) {
             </span>
           </div>
           <div className="salary-item" style={{ gridColumn: "span 2", borderTop: "2px solid var(--border)", paddingTop: 12 }}>
-            <span className="label" style={{ fontSize: 18, fontWeight: 700 }}><Banknote size={18} color="var(--accent)" /> Lương thực nhận</span>
+            <span className="label" style={{ fontSize: 18, fontWeight: 700 }}><Banknote size={18} color="var(--accent)" />Lương thực nhận</span>
             <span className="value" style={{ fontSize: 24, fontWeight: 700, color: "var(--primary)" }}>
               {salaryData.netSalary.toLocaleString("vi-VN")} ₫
             </span>
@@ -686,9 +688,71 @@ function SalarySection({ user }) {
   );
 }
 
+function OverviewSection({ user, pendingRequests, pendingIncidents }) {
+  const [salarySummary, setSalarySummary] = useState(null);
+  
+  useEffect(() => {
+    const today = new Date();
+    getSalary(user.id, today.getFullYear(), today.getMonth() + 1)
+      .then(res => setSalarySummary(res.data))
+      .catch(() => setSalarySummary(null));
+  }, [user.id]);
+
+  return (
+    <div>
+      <div className="stat-grid">
+        <div className="stat-card">
+          <div className="stat-icon blue"><FileText size={24} /></div>
+          <div>
+            <div className="stat-label">Đơn chờ duyệt</div>
+            <div className="stat-value">{pendingRequests}</div>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon yellow"><AlertTriangle size={24} /></div>
+          <div>
+            <div className="stat-label">Sự cố chờ xử lý</div>
+            <div className="stat-value">{pendingIncidents}</div>
+          </div>
+        </div>
+      </div>
+      <h3 style={{ marginTop: 24, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, fontSize: 16 }}>
+        <Banknote size={18} color="var(--accent)" /> Tạm tính lương tháng này
+      </h3>
+      {salarySummary ? (
+        <div className="stat-grid">
+          <div className="stat-card">
+            <div className="stat-icon green"><CheckCircle size={24} /></div>
+            <div>
+              <div className="stat-label">Số ca hoàn thành</div>
+              <div className="stat-value">{salarySummary.totalShifts} ca</div>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon yellow"><Flag size={24} /></div>
+            <div>
+              <div className="stat-label">Số lần đi trễ</div>
+              <div className="stat-value" style={{ color: salarySummary.lateCount > 0 ? 'var(--warning)' : 'inherit' }}>{salarySummary.lateCount} lần</div>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon purple"><Banknote size={24} /></div>
+            <div>
+              <div className="stat-label">Thực nhận dự kiến</div>
+              <div className="stat-value" style={{ fontSize: 20, color: 'var(--primary)' }}>{salarySummary.netSalary.toLocaleString("vi-VN")} ₫</div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="card"><p style={{ color: 'var(--text-muted)' }}>Chưa có dữ liệu lương hoặc đang tải...</p></div>
+      )}
+    </div>
+  );
+}
+
 // ─── TỔNG HỢP: DASHBOARD ──────────────────────────────────
 export default function StaffDashboard({ user, onLogout }) {
-  const [tab, setTab] = useState("schedule");
+  const [tab, setTab] = useState("overview");
   const [requests, setRequests] = useState([]);
   const [incidents, setIncidents] = useState([]);
 
@@ -704,6 +768,7 @@ export default function StaffDashboard({ user, onLogout }) {
   const pendingIncidents = incidents.filter(i => i.status === "PENDING").length;
 
   const navItems = [
+    { id: "overview", icon: <Home size={18} />, label: "Tổng quan" },
     { id: "schedule", icon: <CalendarDays size={18} />, label: "Lịch làm việc" },
     { id: "requests", icon: <FileText size={18} />, label: "Đơn xin nghỉ/Đổi ca" },
     { id: "incidents", icon: <AlertTriangle size={18} />, label: "Báo cáo sự cố" },
@@ -712,6 +777,7 @@ export default function StaffDashboard({ user, onLogout }) {
   ];
 
   const pageTitles = {
+    overview:  { title: "Tổng quan",            sub: "Thông tin tổng hợp cá nhân" },
     schedule:  { title: "Lịch làm việc",        sub: "Xem lịch và chấm công của bạn" },
     requests:  { title: "Đơn xin nghỉ / Đổi ca", sub: "Gửi và theo dõi trạng thái đơn" },
     incidents: { title: "Báo cáo sự cố",         sub: "Mất thẻ, không đủ chỗ, hỏng thiết bị..." },
@@ -723,8 +789,9 @@ export default function StaffDashboard({ user, onLogout }) {
     <div className="staff-layout">
       {/* Sidebar */}
       <aside className="sidebar">
-        <div className="sidebar-logo">
-          <h2>Nhân Viên</h2>
+        <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', padding: '0 16px 24px' }}>
+          <UserProfile user={user} onLogout={onLogout} />
+          <h2 style={{ marginLeft: 8 }}>Nhân Viên</h2>
         </div>
         <nav className="sidebar-nav">
           {navItems.map(item => (
@@ -748,40 +815,17 @@ export default function StaffDashboard({ user, onLogout }) {
           <p>{pageTitles[tab].sub}</p>
         </div>
 
-        {/* Stat cards chỉ hiển thị ở trang chủ (schedule) */}
-        {tab === "schedule" && (
-          <div className="stat-grid">
-            <div className="stat-card">
-              <div className="stat-icon blue"><FileText size={24} /></div>
-              <div>
-                <div className="stat-label">Đơn chờ duyệt</div>
-                <div className="stat-value">{pendingRequests}</div>
-              </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-icon yellow"><AlertTriangle size={24} /></div>
-              <div>
-                <div className="stat-label">Sự cố chờ xử lý</div>
-                <div className="stat-value">{pendingIncidents}</div>
-              </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-icon green"><User size={24} /></div>
-              <div>
-                <div className="stat-label">Nhân viên</div>
-                <div className="stat-value" style={{ fontSize: 14 }}>{user.fullName}</div>
-              </div>
-            </div>
+        {tab === "overview" && <OverviewSection user={user} pendingRequests={pendingRequests} pendingIncidents={pendingIncidents} />}
+        
+        {tab !== "overview" && (
+          <div className="card">
+            {tab === "schedule"  && <ScheduleSection user={user} />}
+            {tab === "requests"  && <RequestSection user={user} />}
+            {tab === "incidents" && <IncidentSection user={user} />}
+            {tab === "handover"  && <HandoverSection user={user} />}
+            {tab === "salary"    && <SalarySection user={user} />}
           </div>
         )}
-
-        <div className="card">
-          {tab === "schedule"  && <ScheduleSection user={user} />}
-          {tab === "requests"  && <RequestSection user={user} />}
-          {tab === "incidents" && <IncidentSection user={user} />}
-          {tab === "handover"  && <HandoverSection user={user} />}
-          {tab === "salary"    && <SalarySection user={user} />}
-        </div>
       </main>
     </div>
   );
