@@ -1,6 +1,6 @@
 package com.example.backend.repositories;
 
-import com.example.backend.models.SystemConfig;
+import com.example.backend.entities.SystemConfig;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

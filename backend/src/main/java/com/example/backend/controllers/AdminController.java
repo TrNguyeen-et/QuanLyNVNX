@@ -1,8 +1,8 @@
 package com.example.backend.controllers;
 
-import com.example.backend.models.AuditLog;
-import com.example.backend.models.SystemConfig;
-import com.example.backend.models.User;
+import com.example.backend.entities.AuditLog;
+import com.example.backend.entities.SystemConfig;
+import com.example.backend.entities.User;
 import com.example.backend.repositories.AuditLogRepository;
 import com.example.backend.repositories.UserRepository;
 import com.example.backend.repositories.AuditLogRepository;
@@ -20,7 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.example.backend.models.EmployeeImportDraft;
+import com.example.backend.entities.EmployeeImportDraft;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -170,22 +170,45 @@ public class AdminController {
         boolean isMaintenance = systemConfigRepository.findById("MAINTENANCE_MODE")
                 .map(config -> "true".equalsIgnoreCase(config.getConfigValue()))
                 .orElse(false);
-        return Map.of("maintenanceMode", isMaintenance);
+        String duration = systemConfigRepository.findById("MAINTENANCE_TIME")
+                .map(SystemConfig::getConfigValue)
+                .orElse("");
+        return Map.of("maintenanceMode", isMaintenance, "duration", duration);
     }
 
     @PostMapping("/maintenance/toggle")
-    public Map<String, Object> toggleMaintenance() {
-        SystemConfig config = systemConfigRepository.findById("MAINTENANCE_MODE").orElse(new SystemConfig());
-        config.setConfigKey("MAINTENANCE_MODE");
-        boolean current = "true".equalsIgnoreCase(config.getConfigValue());
-        config.setConfigValue(current ? "false" : "true");
-        config.setDescription("Trạng thái bảo trì hệ thống");
-        systemConfigRepository.save(config);
+    public Map<String, Object> toggleMaintenance(@RequestBody(required = false) Map<String, Object> body) {
+        boolean enable = false;
+        String duration = "";
         
-        log(current ? "Tắt chế độ bảo trì" : "Bật chế độ bảo trì", "ADMIN");
+        if (body != null && body.containsKey("enabled")) {
+            enable = Boolean.TRUE.equals(body.get("enabled"));
+            duration = (String) body.getOrDefault("duration", "");
+        } else {
+            // Fallback: simple toggle
+            boolean current = systemConfigRepository.findById("MAINTENANCE_MODE")
+                .map(config -> "true".equalsIgnoreCase(config.getConfigValue()))
+                .orElse(false);
+            enable = !current;
+        }
+
+        SystemConfig modeConfig = systemConfigRepository.findById("MAINTENANCE_MODE").orElse(new SystemConfig());
+        modeConfig.setConfigKey("MAINTENANCE_MODE");
+        modeConfig.setConfigValue(enable ? "true" : "false");
+        modeConfig.setDescription("Trạng thái bảo trì hệ thống");
+        systemConfigRepository.save(modeConfig);
+        
+        SystemConfig timeConfig = systemConfigRepository.findById("MAINTENANCE_TIME").orElse(new SystemConfig());
+        timeConfig.setConfigKey("MAINTENANCE_TIME");
+        timeConfig.setConfigValue(duration);
+        timeConfig.setDescription("Thời gian bảo trì dự kiến");
+        systemConfigRepository.save(timeConfig);
+
+        log(enable ? "Bật chế độ bảo trì" : "Tắt chế độ bảo trì", "ADMIN");
         return Map.of(
-            "maintenanceMode", !current,
-            "message", !current ? "Đã bật chế độ bảo trì!" : "Đã tắt chế độ bảo trì!"
+            "maintenanceMode", enable,
+            "duration", duration != null ? duration : "",
+            "message", enable ? "Đã bật chế độ bảo trì!" : "Đã tắt chế độ bảo trì!"
         );
     }
 

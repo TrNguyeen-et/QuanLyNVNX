@@ -1,6 +1,6 @@
 package com.example.backend.controllers;
 
-import com.example.backend.models.*;
+import com.example.backend.entities.*;
 import com.example.backend.repositories.*;
 import com.example.backend.services.ShiftService;
 import com.example.backend.services.ManagerReportService;
@@ -13,6 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.time.YearMonth;
 import java.util.*;
 
@@ -28,35 +29,65 @@ public class ManagerController {
     }
 
     @PostMapping("/import-staff")
-    public Map<String, String> importStaff(@RequestParam("file") MultipartFile file) {
+    public Map<String, Object> importStaff(@RequestParam("file") MultipartFile file) {
         Long managerId = 1L; // demo hardcode
         try {
-            String message = managerReportService.importStaffFromExcel(file, managerId);
-            Map<String, String> res = new HashMap<>();
-            res.put("message", message);
-            return res;
+            return managerReportService.importStaffFromExcel(file, managerId);
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
         }
+    }
+
+    @PostMapping("/import-excel/confirm")
+    public Map<String, String> confirmImport(@RequestBody List<Long> draftIds) {
+        List<EmployeeImportDraft> drafts = employeeImportDraftRepository.findAllById(draftIds);
+        for (EmployeeImportDraft draft : drafts) {
+            if ("PREVIEW".equals(draft.getStatus())) {
+                draft.setStatus("PENDING");
+            }
+        }
+        employeeImportDraftRepository.saveAll(drafts);
+        Map<String, String> res = new HashMap<>();
+        res.put("message", "Đã xác nhận và gửi " + drafts.size() + " hồ sơ cho Admin!");
+        return res;
+    }
+
+    @PostMapping("/import-excel/cancel")
+    public Map<String, String> cancelImport(@RequestBody List<Long> draftIds) {
+        List<EmployeeImportDraft> drafts = employeeImportDraftRepository.findAllById(draftIds);
+        for (EmployeeImportDraft draft : drafts) {
+            if ("PREVIEW".equals(draft.getStatus())) {
+                employeeImportDraftRepository.delete(draft);
+            }
+        }
+        Map<String, String> res = new HashMap<>();
+        res.put("message", "Đã hủy thao tác import!");
+        return res;
     }
 
     @Autowired private com.example.backend.repositories.EmployeeImportDraftRepository employeeImportDraftRepository;
 
     @PostMapping("/add-staff-draft")
     public Map<String, String> addStaffDraft(@RequestBody EmployeeImportDraft draft) {
-        if (draft.getUsername() == null || draft.getUsername().trim().isEmpty() ||
-            draft.getFullName() == null || draft.getFullName().trim().isEmpty()) {
+        if (draft.getFullName() == null || draft.getFullName().trim().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thiếu thông tin bắt buộc!");
-        }
-        if (userRepository.findByUsername(draft.getUsername()).isPresent() ||
-            employeeImportDraftRepository.existsByUsername(draft.getUsername())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tài khoản đã tồn tại!");
         }
         if ("ACCOUNTANT".equals(draft.getRole())) {
             draft.setRole("ACCOUNTANT");
         } else {
             draft.setRole("STAFF");
         }
+
+        // Tự động cấp tài khoản theo vai trò
+        String prefix = "STAFF".equals(draft.getRole()) ? "nv" : "kt";
+        int count = 1;
+        String generatedUsername = String.format("%s%03d", prefix, count);
+        while (userRepository.findByUsername(generatedUsername).isPresent() ||
+               employeeImportDraftRepository.existsByUsername(generatedUsername)) {
+            count++;
+            generatedUsername = String.format("%s%03d", prefix, count);
+        }
+        draft.setUsername(generatedUsername);
         draft.setStatus("PENDING");
         draft.setUploadedAt(java.time.LocalDateTime.now());
         draft.setUploadedBy(1L); // hardcode manager id
@@ -77,6 +108,7 @@ public class ManagerController {
     @Autowired private LeaveRequestService leaveRequestService;
     @Autowired private ManagerReportService managerReportService;
     @Autowired private com.example.backend.services.EmailService emailService;
+    @Autowired private com.example.backend.services.NotificationService notificationService;
 
     @GetMapping("/staff-list")
     public List<User> getAllStaff() { return userRepository.findAll(); }
@@ -90,15 +122,30 @@ public class ManagerController {
         return userRepository.findById(id).map(u -> {
             u.setFullName(s.getFullName());
             u.setRole(s.getRole());
-            u.setSalary(s.getSalary());
-            u.setStatus(s.getStatus());
+            if (s.getSalary() != null) u.setSalary(s.getSalary());
+            if (s.getStatus() != null) u.setStatus(s.getStatus());
+            if (s.getEmail() != null) u.setEmail(s.getEmail());
+            if (s.getPosition() != null) u.setPosition(s.getPosition());
+            if (s.getWorkShift() != null) u.setWorkShift(s.getWorkShift());
+            if (s.getWorkDays() != null) u.setWorkDays(s.getWorkDays());
             return userRepository.save(u);
         }).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"));
     }
 
     @GetMapping("/assignments")
-    public List<ShiftAssignment> getAssignmentsByDate(@RequestParam String date) {
-        return shiftAssignmentRepository.findByWorkDate(LocalDate.parse(date));
+    public List<ShiftAssignment> getAssignments(
+            @RequestParam(required = false) String date,
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) Integer year) {
+        if (date != null) {
+            return shiftAssignmentRepository.findByWorkDate(LocalDate.parse(date, DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+        }
+        if (month != null && year != null) {
+            LocalDate start = LocalDate.of(year, month, 1);
+            LocalDate end = start.withDayOfMonth(start.lengthOfMonth());
+            return shiftAssignmentRepository.findByWorkDateBetween(start, end);
+        }
+        return new ArrayList<>();
     }
 
     @DeleteMapping("/assignments/{id}")
@@ -108,6 +155,31 @@ public class ManagerController {
         shiftAssignmentRepository.deleteById(id);
         Map<String, String> res = new HashMap<>();
         res.put("message", "Đã xóa phân công!");
+        return res;
+    }
+
+    @PutMapping("/assignments/{id}")
+    public Map<String, Object> updateAssignment(@PathVariable long id, @RequestBody Map<String, Object> data) {
+        ShiftAssignment sa = shiftAssignmentRepository.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy phân công"));
+        
+        if (data.containsKey("position")) {
+            sa.setPosition(data.get("position").toString());
+        }
+        if (data.containsKey("shiftId")) {
+            long shiftId = Long.parseLong(data.get("shiftId").toString());
+            Shift shift = shiftRepository.findById(shiftId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy ca"));
+            sa.setShift(shift);
+        }
+        if (data.containsKey("userId")) {
+            long userId = Long.parseLong(data.get("userId").toString());
+            User user = userRepository.findById(userId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy user"));
+            sa.setUser(user);
+        }
+
+        shiftAssignmentRepository.save(sa);
+        Map<String, Object> res = new HashMap<>();
+        res.put("message", "Đã cập nhật phân công!");
         return res;
     }
 
@@ -205,6 +277,11 @@ public class ManagerController {
         return leaveRequestRepository.findByStatus("PENDING");
     }
 
+    @GetMapping("/all-leave-requests")
+    public List<LeaveRequest> getAllLeaves() {
+        return leaveRequestRepository.findAll();
+    }
+
     @PutMapping("/leave-requests/{id}/approve")
     public Map<String, String> approveLeave(@PathVariable long id, @RequestParam boolean isApproved) {
         return leaveRequestService.approveLeave(id, isApproved);
@@ -213,12 +290,23 @@ public class ManagerController {
     @GetMapping("/incidents")
     public List<Incident> getIncidents() { return incidentRepository.findByStatus("PENDING"); }
 
+    @GetMapping("/all-incidents")
+    public List<Incident> getAllIncidents() { return incidentRepository.findAll(); }
+
     @PutMapping("/incidents/{id}/resolve")
     public Map<String, String> resolveInc(@PathVariable long id) {
         Incident i = incidentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"));
         i.setStatus("RESOLVED");
         incidentRepository.save(i);
+        if (i.getUserId() != null) {
+            userRepository.findById(i.getUserId()).ifPresent(user -> {
+                String content = i.getContent() != null ? i.getContent() : "Không rõ";
+                if (content.length() > 20) content = content.substring(0, 20) + "...";
+                notificationService.createNotification(user, "Sự cố '" + content + "' đã được xử lý.", "INCIDENT");
+            });
+        }
+        
         Map<String, String> res = new HashMap<>();
         res.put("message", "Done!");
         return res;

@@ -3,33 +3,46 @@
 services:
   db-server:
     image: mysql:8.0
-    container_name: db-server
+    command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    container_name: quan_ly_nha_xe_db
     environment:
       MYSQL_ROOT_PASSWORD: admin123
       MYSQL_DATABASE: quan_ly_nha_xe
     ports:
-      - "3308:3306" # Map port 3308 của máy bạn vào 3306 của container
+      - "3307:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql # TỰ ĐỘNG CHẠY FILE SQL KHI TẠO DB
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-padmin123"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
 
-  web-app:
-    build: ./backend
-    container_name: web-app
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: quan_ly_nha_xe_backend
+    environment:
+      - DB_HOST=db-server
+      - DB_PORT=3306
+      - DB_USER=root
     ports:
       - "8080:8080"
     depends_on:
-      - db-server
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://db-server:3306/quan_ly_nha_xe?allowPublicKeyRetrieval=true&useSSL=false
+      db-server:
+        condition: service_healthy
 
   frontend:
-    build: ./frontend
-    container_name: frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: quan_ly_nha_xe_frontend
     ports:
-      - "5173:5173" # Hoặc 3000 tùy cấu hình
+      - "5173:80"
     depends_on:
-      - web-app
+      - backend
 
 volumes:
-  mysql_data:
+  db-data:

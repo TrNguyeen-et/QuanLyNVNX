@@ -237,10 +237,10 @@
 .day-cell.selected { border-color: var(--accent); background: rgba(79,142,247,0.15); }
 .day-num { font-size: 13px; font-weight: 600; }
 .day-shift {
-  font-size: 9px;
+  font-size: 12px;
   color: var(--accent);
   background: rgba(79,142,247,0.15);
-  padding: 1px 5px;
+  padding: 2px 6px;
   border-radius: 4px;
   margin-top: 2px;
   max-width: 100%;
@@ -275,6 +275,7 @@
   margin-top: 14px;
 }
 .btn-checkin, .btn-checkout {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
   flex: 1;
   padding: 10px;
   border: none;
@@ -347,18 +348,7 @@
 .form-group textarea { min-height: 80px; resize: vertical; }
 .form-group select option { background: var(--surface); }
 
-.btn-primary {
-  background: linear-gradient(135deg, var(--accent), var(--accent2));
-  color: #fff;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.2s;
-  font-family: var(--font);
-}
+.btn-primary { display: flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; font-family: var(--font); }
 .btn-primary:hover { opacity: 0.85; }
 .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
 

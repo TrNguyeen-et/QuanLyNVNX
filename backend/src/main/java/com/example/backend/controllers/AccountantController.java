@@ -1,7 +1,8 @@
 package com.example.backend.controllers;
 
-import com.example.backend.models.*;
+import com.example.backend.entities.*;
 import com.example.backend.repositories.*;
+import com.example.backend.services.EmailService;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +38,9 @@ public class AccountantController {
     @Autowired
     private SalaryHistoryRepository salaryHistoryRepository;
 
+    @Autowired
+    private EmailService emailService;
+
     @PostMapping("/upload-timesheet")
     public Map<String, Object> uploadTimesheet(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
@@ -55,22 +59,24 @@ public class AccountantController {
                 rowIterator.next();
             }
             
-            DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
             DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
             
             while (rowIterator.hasNext()) {
                 Row row = rowIterator.next();
                 try {
-                    // Columns: Username (0), Ngày (1), Ca làm (2), Giờ vào (3), Giờ ra (4)
-                    String username = getCellStringValue(row.getCell(0));
+                    // Columns: Họ tên (0), Ngày (1), Ca làm (2), Vị trí (3), Giờ vào (4), Giờ ra (5)
+                    String fullName = getCellStringValue(row.getCell(0));
                     String dateStr = getCellStringValue(row.getCell(1));
                     String shiftName = getCellStringValue(row.getCell(2));
-                    String checkInStr = getCellStringValue(row.getCell(3));
-                    String checkOutStr = getCellStringValue(row.getCell(4));
+                    String position = getCellStringValue(row.getCell(3));
+                    String checkInStr = getCellStringValue(row.getCell(4));
+                    String checkOutStr = getCellStringValue(row.getCell(5));
                     
-                    if (username == null || dateStr == null || shiftName == null) continue;
+                    if (fullName == null || dateStr == null || shiftName == null) continue;
                     
-                    User user = userRepository.findByUsername(username).orElse(null);
+                    List<User> users = userRepository.findByFullName(fullName);
+                    User user = users.isEmpty() ? null : users.get(0);
                     if (user == null) {
                         errorCount++;
                         continue;
@@ -99,7 +105,7 @@ public class AccountantController {
                         assignment.setShift(targetShift);
                         assignment.setWorkDate(workDate);
                         assignment.setStatus("COMPLETED");
-                        assignment.setPosition("CHAM_CONG_BU");
+                        assignment.setPosition(position != null && !position.trim().isEmpty() ? position : "CHAM_CONG_BU");
                         assignment = shiftAssignmentRepository.save(assignment);
                     } else {
                         assignment.setStatus("COMPLETED");
@@ -183,7 +189,7 @@ public class AccountantController {
             
             List<ShiftAssignment> assigns = shiftAssignmentRepository.findByUser(s);
             double pay = 0, penalty = 0;
-            int comp = 0;
+            int comp = 0, lateCount = 0;
             
             for (ShiftAssignment a : assigns) {
                 if (a.getWorkDate() != null && a.getWorkDate().getMonthValue() == month && a.getWorkDate().getYear() == year) {
@@ -192,17 +198,22 @@ public class AccountantController {
                         if (a.getShift() != null && a.getShift().getShiftPrice() != null)
                             pay += a.getShift().getShiftPrice();
                         Attendance att = attendanceRepository.findByShiftAssignment(a);
-                        if (att != null && att.getPenaltyFee() != null)
-                            penalty += att.getPenaltyFee();
+                        if (att != null) {
+                            if (att.getPenaltyFee() != null) penalty += att.getPenaltyFee();
+                            if ("LATE".equals(att.getStatus())) lateCount++;
+                        }
                     }
                 }
             }
             
-            item.put("shifts", comp);
-            item.put("pay", pay);
-            item.put("penalty", penalty);
-            item.put("final", pay - penalty);
-            report.add(item);
+            if (comp > 0) {
+                item.put("shifts", comp);
+                item.put("pay", pay);
+                item.put("penalty", penalty);
+                item.put("lateCount", lateCount);
+                item.put("final", pay - penalty);
+                report.add(item);
+            }
         }
         return report;
     }
@@ -241,6 +252,19 @@ public class AccountantController {
             history.setFinalizedAt(LocalDateTime.now());
             
             salaryHistoryRepository.save(history);
+            
+            // Gửi email phiếu lương
+            int lateCount = (Integer) item.getOrDefault("lateCount", 0);
+            emailService.sendPayslipEmail(
+                user.getEmail(), 
+                user.getFullName(), 
+                "Tháng " + month + "/" + year, 
+                history.getFinalSalary(), 
+                history.getTotalShifts(), 
+                lateCount, 
+                history.getTotalPenalty()
+            );
+            
             count++;
         }
         
@@ -265,6 +289,28 @@ public class AccountantController {
             item.put("status", h.getStatus());
             item.put("finalizedAt", h.getFinalizedAt() != null ? h.getFinalizedAt().toString() : "");
             result.add(item);
+        }
+        return result;
+    }
+    
+    @GetMapping("/salary-statistics")
+    public List<Map<String, Object>> getSalaryStatistics(@RequestParam("year") Integer year) {
+        List<SalaryHistory> list = salaryHistoryRepository.findByYear(year);
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (int i = 1; i <= 12; i++) {
+            Map<String, Object> monthData = new HashMap<>();
+            monthData.put("month", "Tháng " + i);
+            
+            final int m = i;
+            double totalSalary = list.stream().filter(h -> h.getMonth() != null && h.getMonth() == m && h.getFinalSalary() != null).mapToDouble(SalaryHistory::getFinalSalary).sum();
+            double totalPenalty = list.stream().filter(h -> h.getMonth() != null && h.getMonth() == m && h.getTotalPenalty() != null).mapToDouble(SalaryHistory::getTotalPenalty).sum();
+            int totalShifts = list.stream().filter(h -> h.getMonth() != null && h.getMonth() == m && h.getTotalShifts() != null).mapToInt(SalaryHistory::getTotalShifts).sum();
+            
+            monthData.put("totalSalary", totalSalary);
+            monthData.put("totalPenalty", totalPenalty);
+            monthData.put("totalShifts", totalShifts);
+            
+            result.add(monthData);
         }
         return result;
     }

@@ -72,6 +72,7 @@ tbody tr:last-child td { border-bottom: none; }
 .badge.manager  { background: rgba(124,92,252,0.15); color: var(--accent2); }
 .badge.staff    { background: rgba(79,142,247,0.15); color: var(--accent);  }
 .badge.hr       { background: rgba(34,197,94,0.15);  color: var(--success); }
+.badge.accountant { background: rgba(245,158,11,0.15); color: var(--warning); }
 
 /* ── FORM ── */
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -83,7 +84,7 @@ tbody tr:last-child td { border-bottom: none; }
 .form-group select option { background: var(--surface); }
 
 /* ── BUTTONS ── */
-.btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; font-family: var(--font); }
+.btn-primary { display: flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; font-family: var(--font); }
 .btn-primary:hover { opacity: 0.85; }
 .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-edit { background: rgba(79,142,247,0.1); color: var(--accent); border: 1px solid rgba(79,142,247,0.2); border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer; transition: all 0.2s; font-family: var(--font); margin-right: 4px; }

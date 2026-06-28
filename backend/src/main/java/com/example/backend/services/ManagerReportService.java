@@ -1,6 +1,6 @@
 package com.example.backend.services;
 
-import com.example.backend.models.*;
+import com.example.backend.entities.*;
 import com.example.backend.repositories.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -84,7 +84,7 @@ public class ManagerReportService {
     }
 
     //Thêm nhân viên từ excel
-    public String importStaffFromExcel(MultipartFile file, Long hrId) throws Exception {
+    public Map<String, Object> importStaffFromExcel(MultipartFile file, Long hrId) throws Exception {
         // Kiểm tra file
         if (file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File rỗng!");
@@ -99,6 +99,8 @@ public class ManagerReportService {
             Sheet sheet = workbook.getSheetAt(0); // Lấy sheet đầu tiên
             int importedCount = 0;
             List<String> errors = new ArrayList<>();
+            Set<String> assignedInThisBatch = new HashSet<>();
+            List<EmployeeImportDraft> importedDrafts = new ArrayList<>();
 
             // Duyệt từ dòng 2 (bỏ qua header)
             for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
@@ -106,44 +108,47 @@ public class ManagerReportService {
                 if (row == null) continue;
 
                 try {
-                    // Giả sử cấu trúc cột: 0: Họ tên, 1: Username, 2: Email, 3: Lương, 4: Ca làm, 5: Ngày làm
+                    // Cấu trúc cột: 0: Họ tên, 1: Email, 2: Vai trò, 3: Lương, 4: Ngày bắt đầu
                     String fullName = getCellString(row.getCell(0));
-                    String username = getCellString(row.getCell(1));
-                    String email = getCellString(row.getCell(2));
+                    String email = getCellString(row.getCell(1));
+                    String roleStr = getCellString(row.getCell(2));
                     Double salary = getCellDouble(row.getCell(3));
-                    String workShift = getCellString(row.getCell(4));
-                    String workDays = getCellString(row.getCell(5));
+                    String workDays = getCellString(row.getCell(4));
 
                     // Validate
                     if (fullName == null || fullName.trim().isEmpty()) {
                         errors.add("Dòng " + (rowIndex+1) + ": Tên không được để trống");
                         continue;
                     }
-                    if (username == null || username.trim().isEmpty()) {
-                        errors.add("Dòng " + (rowIndex+1) + ": Username không được để trống");
-                        continue;
+                    
+                    String role = "ACCOUNTANT".equalsIgnoreCase(roleStr) || "Kế toán".equalsIgnoreCase(roleStr) ? "ACCOUNTANT" : "STAFF";
+
+                    // Sinh tài khoản tự động
+                    String prefix = "STAFF".equals(role) ? "nv" : "kt";
+                    int count = 1;
+                    String username = String.format("%s%03d", prefix, count);
+                    while (assignedInThisBatch.contains(username) ||
+                           employeeImportDraftRepository.existsByUsername(username) ||
+                           userRepository.findByUsername(username).isPresent()) {
+                        count++;
+                        username = String.format("%s%03d", prefix, count);
                     }
-                    // Kiểm tra trùng username trong bảng draft hoặc user
-                    if (employeeImportDraftRepository.existsByUsername(username) ||
-                        userRepository.findByUsername(username).isPresent()) {
-                        errors.add("Dòng " + (rowIndex+1) + ": Username '" + username + "' đã tồn tại");
-                        continue;
-                    }
+                    assignedInThisBatch.add(username);
 
                     // Tạo bản ghi draft
                     EmployeeImportDraft draft = new EmployeeImportDraft();
                     draft.setFullName(fullName.trim());
-                    draft.setUsername(username.trim());
+                    draft.setUsername(username);
                     draft.setEmail(email != null ? email.trim() : "");
                     draft.setSalary(salary != null ? salary : 0.0);
-                    draft.setWorkShift(workShift != null ? workShift.trim() : "");
                     draft.setWorkDays(workDays != null ? workDays.trim() : "");
-                    draft.setRole("STAFF");
-                    draft.setStatus("PENDING");
+                    draft.setRole(role);
+                    draft.setStatus("PREVIEW");
                     draft.setUploadedBy(hrId);
                     draft.setUploadedAt(LocalDateTime.now());
 
                     employeeImportDraftRepository.save(draft);
+                    importedDrafts.add(draft);
                     importedCount++;
 
                 } catch (Exception e) {
@@ -156,7 +161,10 @@ public class ManagerReportService {
                         "Không có dòng nào hợp lệ để import. Chi tiết lỗi: " + String.join("; ", errors));
             }
 
-            return "Đã import thành công " + importedCount + " hồ sơ. (Lỗi: " + errors.size() + " dòng)";
+            Map<String, Object> result = new HashMap<>();
+            result.put("message", "Đã parse thành công " + importedCount + " hồ sơ. (Lỗi: " + errors.size() + " dòng)");
+            result.put("drafts", importedDrafts);
+            return result;
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi đọc file Excel: " + e.getMessage());
         }
@@ -167,7 +175,11 @@ public class ManagerReportService {
         if (cell == null) return null;
         switch (cell.getCellType()) {
             case STRING: return cell.getStringCellValue();
-            case NUMERIC: return String.valueOf(cell.getNumericCellValue());
+            case NUMERIC: 
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    return cell.getLocalDateTimeCellValue().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+                }
+                return String.valueOf(cell.getNumericCellValue());
             default: return null;
         }
     }

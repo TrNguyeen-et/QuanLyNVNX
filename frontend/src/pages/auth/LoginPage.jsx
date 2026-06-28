@@ -40,8 +40,10 @@ export default function LoginPage({ onLogin }) {
   return (
     <div className="login-bg">
       <div className="login-card">
-        <div className="login-logo">🚗</div>
-        <h1 className="login-title">Quản Lý Nhà Xe</h1>
+        <div className="login-logo">
+          <img src="/ptit-logo.png" alt="PTIT Logo" style={{ height: '70px', width: 'auto', objectFit: 'contain' }} />
+        </div>
+        <h1 className="login-title">Quản Lý Nhân Viên Nhà Xe</h1>
         <p className="login-sub">Đăng nhập vào hệ thống</p>
 
         {error && <div className="login-error">{error}</div>}
@@ -72,11 +74,6 @@ export default function LoginPage({ onLogin }) {
           {loading ? "Đang đăng nhập..." : "Đăng nhập →"}
         </button>
 
-        <div className="login-roles">
-          <span>Admin</span>
-          <span>Quản lý</span>
-          <span>Nhân viên</span>
-        </div>
       </div>
     </div>
   );

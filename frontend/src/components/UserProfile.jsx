@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { User, Key, LogOut } from 'lucide-react';
+import { ROLE_LABEL } from '../utils/constants';
 import './UserProfile.css';
 
 const API = "http://localhost:8080/api";
@@ -39,7 +40,7 @@ function UserProfile({ user, onLogout }) {
         <div className="profile-dropdown">
           <div className="dropdown-header">
             <strong>{user?.fullName}</strong>
-            <span>{user?.role}</span>
+            <span>{ROLE_LABEL[user?.role] || user?.role}</span>
           </div>
           <button className="dropdown-item" onClick={() => { setShowProfileModal(true); setIsOpen(false); }}>
             <User size={16} /> Hồ sơ cá nhân
@@ -72,7 +73,8 @@ function ProfileModal({ user, onClose }) {
         <div className="profile-info">
           <div className="info-row"><label>Họ tên:</label> <span>{user?.fullName}</span></div>
           <div className="info-row"><label>Tên đăng nhập:</label> <span>{user?.username}</span></div>
-          <div className="info-row"><label>Vai trò:</label> <span>{user?.role}</span></div>
+          <div className="info-row"><label>Email:</label> <span>{user?.email || "Chưa cập nhật"}</span></div>
+          <div className="info-row"><label>Vai trò:</label> <span>{ROLE_LABEL[user?.role] || user?.role}</span></div>
         </div>
         <div className="modal-actions" style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end' }}>
           <button className="btn-secondary" onClick={onClose} style={{ padding: '8px 16px', borderRadius: 4, border: '1px solid #ccc', background: '#fff', cursor: 'pointer' }}>Đóng</button>
@@ -143,8 +145,8 @@ function PasswordModal({ user, onClose }) {
           </div>
           <div className="modal-actions" style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
             <button type="button" className="btn-secondary" onClick={onClose} style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid #ccc', background: '#fff', cursor: 'pointer' }}>Hủy</button>
-            <button type="submit" className="btn-primary" disabled={loading} style={{ padding: '8px 16px', borderRadius: 6, border: 'none', background: 'var(--primary)', color: '#fff', cursor: 'pointer' }}>
-              {loading ? "Đang xử lý..." : "Lưu thay đổi"}
+            <button type="submit" className="btn-primary" disabled={loading} style={{ padding: '8px 16px', borderRadius: 6, cursor: 'pointer' }}>
+              {loading ? "Đang xử lý..." : "Xác nhận"}
             </button>
           </div>
         </form>

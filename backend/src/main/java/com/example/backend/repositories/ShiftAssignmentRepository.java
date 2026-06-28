@@ -1,7 +1,7 @@
 package com.example.backend.repositories;
 
-import com.example.backend.models.ShiftAssignment;
-import com.example.backend.models.User;
+import com.example.backend.entities.ShiftAssignment;
+import com.example.backend.entities.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -17,4 +17,7 @@ public interface ShiftAssignmentRepository extends JpaRepository<ShiftAssignment
     
     // THÊM MỚI: Tìm ca làm việc trong 1 khoảng thời gian của 1 user
     List<ShiftAssignment> findByUserAndWorkDateBetween(User user, LocalDate start, LocalDate end);
+    
+    // Tìm ca làm việc trong 1 khoảng thời gian
+    List<ShiftAssignment> findByWorkDateBetween(LocalDate start, LocalDate end);
 }

@@ -62,12 +62,7 @@ const Login = ({ setUser }) => {
           </button>
         </form>
 
-        <div style={{ marginTop: '2.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '12px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-          <p style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>Tài khoản mẫu trong DB (nv001 / 123):</p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-            <span>Nhân viên: nv001 / 123</span>
-          </div>
-        </div>
+
       </div>
     </div>
   );

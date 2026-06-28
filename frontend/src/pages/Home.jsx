@@ -52,20 +52,7 @@ const Home = () => {
         </button>
       </div>
 
-      <div className="stats-grid" style={{ marginTop: '5rem', maxWidth: '800px', width: '100%' }}>
-        <div className="card">
-          <h2 style={{ color: 'var(--primary)', marginBottom: '0.25rem' }}>1.2k</h2>
-          <p className="text-muted">Lượt xe mỗi ngày</p>
-        </div>
-        <div className="card">
-          <h2 style={{ color: 'var(--primary)', marginBottom: '0.25rem' }}>500+</h2>
-          <p className="text-muted">Chỗ để xe máy</p>
-        </div>
-        <div className="card">
-          <h2 style={{ color: 'var(--primary)', marginBottom: '0.25rem' }}>99.9%</h2>
-          <p className="text-muted">Đảm bảo an ninh</p>
-        </div>
-      </div>
+
     </div>
   );
 };

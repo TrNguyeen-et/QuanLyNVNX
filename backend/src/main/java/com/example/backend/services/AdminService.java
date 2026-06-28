@@ -1,21 +1,25 @@
 package com.example.backend.services;
 
-import com.example.backend.models.SystemConfig;
-import com.example.backend.models.User;
+import com.example.backend.entities.SystemConfig;
+import com.example.backend.entities.User;
+import com.example.backend.entities.Shift;
 import com.example.backend.repositories.AuditLogRepository;
 import com.example.backend.repositories.SystemConfigRepository;
 import com.example.backend.repositories.UserRepository;
+import com.example.backend.repositories.ShiftRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import java.time.LocalTime;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.example.backend.models.EmployeeImportDraft;
+import com.example.backend.entities.EmployeeImportDraft;
+import com.example.backend.entities.AuditLog;
 import java.time.LocalDateTime;
 
 import com.example.backend.repositories.EmployeeImportDraftRepository;
@@ -29,6 +33,7 @@ public class AdminService {
     @Autowired private AuditLogRepository auditLogRepository;
     @Autowired private EmployeeImportDraftRepository employeeImportDraftRepository;
     @Autowired private EmailService emailService;
+    @Autowired private ShiftRepository shiftRepository;
 
     // ==================== 1. QUẢN LÝ CẤU HÌNH HỆ THỐNG ====================
     
@@ -50,6 +55,21 @@ public class AdminService {
             saveConfig("PENALTY_30MIN", "50000", "Phạt đi trễ từ 15 đến 30 phút");
             saveConfig("PENALTY_OVER_30MIN", "100000", "Phạt đi trễ trên 30 phút");
         }
+        
+        if (shiftRepository.count() == 0) {
+            saveShift("Ca Sáng", LocalTime.of(6, 0), LocalTime.of(12, 0), 100000.0);
+            saveShift("Ca Chiều", LocalTime.of(12, 0), LocalTime.of(18, 0), 100000.0);
+            saveShift("Ca Tối", LocalTime.of(18, 0), LocalTime.of(22, 0), 80000.0);
+        }
+    }
+
+    private void saveShift(String name, LocalTime start, LocalTime end, Double price) {
+        Shift s = new Shift();
+        s.setShiftName(name);
+        s.setStartTime(start);
+        s.setEndTime(end);
+        s.setShiftPrice(price);
+        shiftRepository.save(s);
     }
 
     private void saveConfig(String key, String value, String desc) {
@@ -105,8 +125,8 @@ public class AdminService {
             User newUser = new User();
             newUser.setUsername(draft.getUsername());
             newUser.setFullName(draft.getFullName());
-            // Mật khẩu mặc định: có thể là username hoặc một giá trị cố định
-            newUser.setPassword(draft.getUsername()); // Nên mã hóa sau
+            // Mật khẩu mặc định
+            newUser.setPassword("123456789");
             newUser.setRole(draft.getRole() != null ? draft.getRole() : "STAFF");
             newUser.setStatus("ACTIVE");
             newUser.setSalary(draft.getSalary() != null ? draft.getSalary() : 0.0);
@@ -136,14 +156,36 @@ public class AdminService {
             approvedCount++;
         }
 
-        // Ghi log audit (nếu muốn)
-        // auditLogRepository.save(...);
+        if (approvedCount > 0) {
+            AuditLog log = new AuditLog();
+            log.setAction("Cấp " + approvedCount + " tài khoản từ file Excel");
+            User admin = userRepository.findById(adminId).orElse(null);
+            log.setActor(admin != null ? admin.getUsername() : ("Admin ID: " + adminId));
+            log.setTimestamp(LocalDateTime.now());
+            auditLogRepository.save(log);
+        }
 
         return approvedCount;
     }
 
     public void rejectImports(List<Long> draftIds, Long adminId, String reason) {
-        // Tương tự, có thể thêm nếu cần
+        List<EmployeeImportDraft> drafts = employeeImportDraftRepository.findAllById(draftIds);
+        for (EmployeeImportDraft draft : drafts) {
+            draft.setStatus("REJECTED");
+            draft.setRejectReason(reason);
+            draft.setProcessedBy(adminId);
+            draft.setProcessedAt(LocalDateTime.now());
+        }
+        employeeImportDraftRepository.saveAll(drafts);
+
+        if (!drafts.isEmpty()) {
+            AuditLog log = new AuditLog();
+            log.setAction("Từ chối " + drafts.size() + " tài khoản từ file Excel" + (reason != null && !reason.isEmpty() ? (" (Lý do: " + reason + ")") : ""));
+            User admin = userRepository.findById(adminId).orElse(null);
+            log.setActor(admin != null ? admin.getUsername() : ("Admin ID: " + adminId));
+            log.setTimestamp(LocalDateTime.now());
+            auditLogRepository.save(log);
+        }
     }
 }
     

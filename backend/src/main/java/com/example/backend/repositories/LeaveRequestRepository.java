@@ -1,7 +1,7 @@
 package com.example.backend.repositories;
 
-import com.example.backend.models.LeaveRequest;
-import com.example.backend.models.User;
+import com.example.backend.entities.LeaveRequest;
+import com.example.backend.entities.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

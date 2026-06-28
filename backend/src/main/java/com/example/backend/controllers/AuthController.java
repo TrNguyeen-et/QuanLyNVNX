@@ -1,9 +1,9 @@
 package com.example.backend.controllers;
 
-import com.example.backend.models.User;
+import com.example.backend.entities.User;
 import com.example.backend.repositories.UserRepository;
 import com.example.backend.repositories.SystemConfigRepository;
-import com.example.backend.models.SystemConfig;
+import com.example.backend.entities.SystemConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -23,24 +23,30 @@ public class AuthController {
     private SystemConfigRepository systemConfigRepository;
 
     @PostMapping("/login")
-    public Map<String, Object> login(@RequestBody Map<String, String> loginData) {
+    public org.springframework.http.ResponseEntity<?> login(@RequestBody Map<String, String> loginData) {
         String username = loginData.get("username");
         String password = loginData.get("password");
 
-        User user = userRepository.findByUsername(username)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sai ten dang nhap hoac mat khau"));
-
-        // Trong thực tế phải mã hóa mật khẩu (BCrypt), ở đây tạm so sánh thẳng để test
-        if (!user.getPassword().equals(password)) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sai ten dang nhap hoac mat khau");
+        User user = userRepository.findByUsername(username).orElse(null);
+        
+        if (user == null || !user.getPassword().equals(password)) {
+            Map<String, String> error = new HashMap<>();
+            error.put("message", "Sai tên đăng nhập hoặc mật khẩu");
+            return org.springframework.http.ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
         }
 
         if (!"ADMIN".equals(user.getRole())) {
-            systemConfigRepository.findById("MAINTENANCE_MODE").ifPresent(config -> {
-                if ("true".equalsIgnoreCase(config.getConfigValue())) {
-                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Hệ thống đang được bảo trì, vui lòng quay lại sau!");
-                }
-            });
+            SystemConfig config = systemConfigRepository.findById("MAINTENANCE_MODE").orElse(null);
+            if (config != null && "true".equalsIgnoreCase(config.getConfigValue())) {
+                String duration = systemConfigRepository.findById("MAINTENANCE_TIME")
+                        .map(SystemConfig::getConfigValue)
+                        .orElse("");
+                String timeMsg = (duration != null && !duration.trim().isEmpty()) ? " trong " + duration : "";
+                
+                Map<String, String> error = new HashMap<>();
+                error.put("message", "Hệ thống đang được bảo trì" + timeMsg + ", vui lòng quay lại sau!");
+                return org.springframework.http.ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(error);
+            }
         }
 
         Map<String, Object> response = new HashMap<>();
@@ -48,7 +54,8 @@ public class AuthController {
         response.put("username", user.getUsername());
         response.put("fullName", user.getFullName());
         response.put("role", user.getRole());
-        return response;
+        response.put("email", user.getEmail());
+        return org.springframework.http.ResponseEntity.ok(response);
     }
 
     @PostMapping("/change-password")

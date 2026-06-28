@@ -1,19 +1,22 @@
-FROM eclipse-temurin:21-jdk-alpine AS build
+# Stage 1: Build the application
+FROM maven:3.9-eclipse-temurin-21 AS builder
 WORKDIR /app
-
 COPY pom.xml .
-COPY mvnw .
-COPY .mvn .mvn
-
-RUN sed -i 's/\r$//' mvnw
-RUN chmod +x ./mvnw
-
-RUN ./mvnw dependency:go-offline
+# Download dependencies first to leverage Docker cache
+RUN mvn dependency:go-offline
 
 COPY src ./src
-RUN ./mvnw package -DskipTests
+# Compile and package the application
+RUN mvn clean package -DskipTests
 
-FROM eclipse-temurin:21-jre
+# Stage 2: Create the runtime image
+FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-COPY --from=build /app/target/*.jar app.jar
+# Copy the built jar file from the builder stage
+COPY --from=builder /app/target/*.jar app.jar
+
+# Expose the application port
+EXPOSE 8080
+
+# Command to run the application
 ENTRYPOINT ["java", "-jar", "app.jar"]

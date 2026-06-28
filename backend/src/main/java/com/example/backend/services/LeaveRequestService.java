@@ -1,6 +1,6 @@
 package com.example.backend.services;
 
-import com.example.backend.models.*;
+import com.example.backend.entities.*;
 import com.example.backend.repositories.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -18,6 +18,7 @@ public class LeaveRequestService {
 
     @Autowired private LeaveRequestRepository leaveRequestRepository;
     @Autowired private ShiftAssignmentRepository shiftAssignmentRepository;
+    @Autowired private NotificationService notificationService;
 
     /**
      * Logic Duyệt đơn nghỉ phép / đổi ca (Liên kết Manager và Staff)
@@ -44,9 +45,20 @@ public class LeaveRequestService {
                 // Chuyển ca đó sang tên người trực thay
                 assignment.setUser(substituteUser);
                 shiftAssignmentRepository.save(assignment);
+                
+                String shiftName = (assignment.getShift() != null) ? assignment.getShift().getShiftName() : "không rõ";
+                notificationService.createNotification(
+                    substituteUser, 
+                    "Bạn đã được nhận ca '" + shiftName + "' vào ngày " + targetDate + " do " + originalUser.getFullName() + " chuyển giao.", 
+                    "ASSIGNMENT"
+                );
             }
         }
         // ==========================================
+
+        String actionStr = isApproved ? "được chấp nhận" : "bị từ chối";
+        String reqTypeStr = "SHIFT_SWAP".equals(request.getRequestType()) ? "đổi ca" : "xin nghỉ";
+        notificationService.createNotification(request.getUser(), "Đơn " + reqTypeStr + " ngày " + request.getTargetDate() + " đã " + actionStr + ".", "LEAVE");
 
         Map<String, String> res = new HashMap<>();
         res.put("message", isApproved ? "Duyệt thành công!" : "Đã từ chối đơn!");

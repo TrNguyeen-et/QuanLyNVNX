@@ -2,22 +2,17 @@
 import { useState, useEffect, useCallback } from "react";
 import "./AdminDashboard.css";
 import UserProfile from "../../components/UserProfile";
-import { BarChart2, Car, CheckCircle, ClipboardList, Download, Edit, Folder, HardHat, Home, Inbox, Lightbulb, Lock, Pin, PlusCircle, RefreshCcw, RefreshCw, Save, Search, Settings, Trash2, Users, XCircle } from "lucide-react";
+import { BarChart2, Car, CheckCircle, ClipboardList, Download, Edit, Folder, HardHat, Home, Inbox, Lightbulb, Lock, Unlock, Pin, PlusCircle, RefreshCcw, RefreshCw, Save, Search, Settings, Trash2, Users, XCircle } from "lucide-react";
 
 const API = "http://localhost:8080/api/admin";
 
-function fmt(v) {
-  if (!v) return "—";
-  return new Date(v).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
-}
+import { formatDateTimeVN as fmt, toInputDate, toBackendDate } from "../../utils/dateUtils";
+import { ROLE_LABEL, STATUS_LABEL } from "../../utils/constants";
 
 function Alert({ msg, type }) {
   if (!msg) return null;
   return <div className={`alert ${type}`}>{msg}</div>;
 }
-
-const ROLE_LABEL  = { ADMIN: "Admin", MANAGER: "Quản lý", STAFF: "Nhân viên", ACCOUNTANT: "Kế toán" };
-const STATUS_LABEL = { ACTIVE: "Đang làm", ON_LEAVE: "Nghỉ phép", RESIGNED: "Đã nghỉ" };
 
 // ── 1. TỔNG QUAN ──────────────────────────────────────────
 function OverviewSection() {
@@ -67,7 +62,7 @@ function OverviewSection() {
 }
 
 // ── 2. QUẢN LÝ TÀI KHOẢN ──────────────────────────────────
-const EMPTY_FORM = { username: "", password: "", fullName: "", role: "STAFF", status: "ACTIVE", salary: "", workShift: "", workDays: "" };
+const EMPTY_FORM = { username: "", password: "", fullName: "", role: "STAFF", status: "ACTIVE", salary: "", workShift: "", workDays: "", email: "" };
 
 function AccountSection() {
   const [users, setUsers]     = useState([]);
@@ -127,13 +122,21 @@ function AccountSection() {
     setLoading(false);
   };
 
-  const handleDelete = async (id, name) => {
-    if (!confirm(`Xóa tài khoản "${name}"? Hành động này không thể hoàn tác!`)) return;
+  const toggleLock = async (u) => {
+    const isLocked = u.status === "LOCKED" || u.status === "INACTIVE";
+    const actionName = isLocked ? "Mở khóa" : "Khóa";
+    if (!confirm(`${actionName} tài khoản "${u.fullName}"?`)) return;
     try {
-      const res = await fetch(`${API}/users/${id}`, { method: "DELETE" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Lỗi xóa");
-      flashMsg(`${data.message}`, "success");
+      const res = await fetch(`${API}/users/${u.id}`, { 
+        method: "PUT", 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...u, status: isLocked ? "ACTIVE" : "LOCKED" })
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || `Lỗi ${actionName.toLowerCase()}`);
+      }
+      flashMsg(`${actionName} tài khoản thành công!`, "success");
       load();
     } catch (e) { flashMsg(e.message, "error"); }
   };
@@ -148,7 +151,7 @@ function AccountSection() {
       <Alert msg={msg.text} type={msg.type} /> <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
         <input
           style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", padding: "9px 12px", fontSize: 13, fontFamily: "var(--font)", flex: 1, minWidth: 180 }}
-          placeholder=<><Search size={16} color="var(--accent)" />Tìm kiếm tên, tài khoản...</>
+          placeholder="Tìm kiếm theo tên"
           value={search} onChange={e => setSearch(e.target.value)}
         />
         <select
@@ -178,7 +181,11 @@ function AccountSection() {
             </div>
             <div className="form-group">
               <label>Họ và tên *</label>
-              <input value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} placeholder="Nguyễn Văn A" />
+              <input value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} placeholder="Nguyễn Văn Sáng" />
+            </div>
+            <div className="form-group">
+              <label>Email</label>
+              <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="email@example.com" />
             </div>
             <div className="form-group">
               <label>Vai trò *</label>
@@ -201,23 +208,15 @@ function AccountSection() {
               <label>Lương cơ bản</label>
               <input type="number" value={form.salary} onChange={e => setForm({ ...form, salary: e.target.value })} placeholder="15000000" />
             </div>
+
             <div className="form-group">
-              <label>Ca mặc định</label>
-              <select value={form.workShift} onChange={e => setForm({ ...form, workShift: e.target.value })}>
-                <option value="">-- Chọn ca --</option>
-                <option value="SHIFT 1">Ca Sáng (6h - 14h)</option>
-                <option value="SHIFT 2">Ca Chiều (14h - 22h)</option>
-                <option value="SHIFT 3">Ca Đêm (22h - 6h)</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Ngày làm (vd: Monday,Tuesday)</label>
-              <input value={form.workDays} onChange={e => setForm({ ...form, workDays: e.target.value })} placeholder="Monday,Tuesday,Wednesday" />
+              <label>Ngày bắt đầu</label>
+              <input type="date" value={toInputDate(form.workDays)} onChange={e => setForm({ ...form, workDays: toBackendDate(e.target.value) })} />
             </div>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             <button className="btn-primary" onClick={handleSubmit} disabled={loading}>
-              {loading ? "Đang lưu..." : editingId ? <><Save size={16} color="var(--accent)" />Lưu thay đổi</> : <><CheckCircle size={16} color="var(--accent)" />Tạo tài khoản</>}
+              {loading ? "Đang lưu..." : editingId ? <><Save size={16} />Lưu thay đổi</> : <><CheckCircle size={16} />Tạo tài khoản</>}
             </button>
             <button className="btn-cancel-sm" onClick={closeForm}>Hủy</button>
           </div>
@@ -248,8 +247,10 @@ function AccountSection() {
                     <td style={{ fontSize: 12, color: "var(--text-muted)" }}>{u.workShift || "—"}</td>
                     <td style={{ fontSize: 12 }}>{u.salary ? Number(u.salary).toLocaleString("vi-VN") + " ₫" : "—"}</td>
                     <td style={{ whiteSpace: "nowrap" }}>
-                      <button className="btn-edit" onClick={() => openEdit(u)}><Edit size={16} color="var(--accent)" /></button>
-                      <button className="btn-del"  onClick={() => handleDelete(u.id, u.fullName)}><Trash2 size={16} color="var(--accent)" /></button>
+                      <button className="btn-edit" onClick={() => openEdit(u)} title="Sửa"><Edit size={16} color="var(--accent)" /></button>
+                      <button className="btn-del"  onClick={() => toggleLock(u)} title={u.status === "LOCKED" || u.status === "INACTIVE" ? "Mở khóa" : "Khóa"}>
+                        {u.status === "LOCKED" || u.status === "INACTIVE" ? <Unlock size={16} color="var(--success)" /> : <Lock size={16} color="var(--warning)" />}
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -268,6 +269,11 @@ function ImportSection() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState({ text: "", type: "" });
+
+  const flashMsg = (text, type) => {
+    setMsg({ text, type });
+    setTimeout(() => setMsg({ text: "", type: "" }), 5000);
+  };
 
   const loadDrafts = useCallback(async () => {
     setLoading(true);
@@ -312,11 +318,13 @@ function ImportSection() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Lỗi duyệt");
-      setMsg({ text: data.message, type: "success" });
+      flashMsg(data.message, "success");
+      window.alert(data.message || "Đã cấp tài khoản thành công!");
       setSelectedIds([]);
-      loadDrafts();
+      await loadDrafts();
     } catch (e) {
-      setMsg({ text: e.message, type: "error" });
+      flashMsg(e.message, "error");
+      window.alert(e.message);
     }
     setLoading(false);
   };
@@ -338,11 +346,13 @@ function ImportSection() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Lỗi từ chối");
-      setMsg({ text: data.message, type: "success" });
+      flashMsg(data.message, "success");
+      window.alert(data.message || "Đã từ chối hồ sơ thành công!");
       setSelectedIds([]);
-      loadDrafts();
+      await loadDrafts();
     } catch (e) {
-      setMsg({ text: e.message, type: "error" });
+      flashMsg(e.message, "error");
+      window.alert(e.message);
     }
     setLoading(false);
   };
@@ -350,16 +360,15 @@ function ImportSection() {
   return (
     <div>
       <Alert msg={msg.text} type={msg.type} /> <div className="card">
-        <div className="card-title"><Download size={16} color="var(--accent)" />Hồ sơ nhân viên chờ duyệt ({drafts.length})</div>
+        <div className="card-header">
+          <div className="card-title"><Download size={16} color="var(--accent)" />Hồ sơ nhân viên chờ cấp tài khoản ({drafts.length})</div>
+        </div>
         <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
-          <button className="btn-primary" onClick={handleApprove} disabled={loading || selectedIds.length === 0}>
-            <CheckCircle size={16} color="var(--accent)" />Duyệt đã chọn
+          <button className="btn btn-primary" onClick={handleApprove} disabled={loading || selectedIds.length === 0}>
+            <CheckCircle size={16} color="var(--accent)" />Cấp tài khoản đã chọn
           </button>
           <button className="btn-danger" onClick={handleReject} disabled={loading || selectedIds.length === 0}>
             <XCircle size={16} color="var(--accent)" />Từ chối đã chọn
-          </button>
-          <button className="btn-cancel-sm" onClick={loadDrafts} disabled={loading}>
-            <RefreshCw size={16} color="var(--accent)" />Làm mới
           </button>
         </div>
 
@@ -379,10 +388,8 @@ function ImportSection() {
                   <th>ID</th>
                   <th>Họ tên</th>
                   <th>Username</th>
-                  <th>Nhiệm vụ</th>
                   <th>Lương</th>
-                  <th>Ca mặc định</th>
-                  <th>Ngày làm</th>
+                  <th>Ngày bắt đầu</th>
                   <th>Upload bởi</th>
                   <th>Thời gian</th>
                 </tr>
@@ -400,9 +407,7 @@ function ImportSection() {
                     <td>#{d.id}</td>
                     <td><strong>{d.fullName}</strong></td>
                     <td>{d.username}</td>
-                    <td>{d.position || "—"}</td>
                     <td>{d.salary ? Number(d.salary).toLocaleString("vi-VN") + " ₫" : "—"}</td>
-                    <td>{d.workShift || '—'}</td>
                     <td>{d.workDays || '—'}</td>
                     <td>#{d.uploadedBy}</td>
                     <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{fmt(d.uploadedAt)}</td>
@@ -441,7 +446,7 @@ function LogSection() {
         <div className="card-title"><ClipboardList size={18} color="var(--accent)" />Nhật ký hệ thống ({filtered.length})</div>
         <input
           style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", padding: "9px 12px", fontSize: 13, fontFamily: "var(--font)", width: "100%", marginBottom: 16 }}
-          placeholder=<><Search size={16} color="var(--accent)" />Tìm kiếm hành động...</>
+          placeholder="Tìm kiếm hành động..."
           value={search} onChange={e => setSearch(e.target.value)}
         />
         {loading ? (
@@ -531,8 +536,95 @@ function ConfigSection() {
     </div>
   );
 }
+// ── 6. BẢO TRÌ HỆ THỐNG ─────────────────────────────────────
+function MaintenanceSection() {
+  const [status, setStatus] = useState({ maintenanceMode: false, duration: "" });
+  const [editingDuration, setEditingDuration] = useState("");
+  const [msg, setMsg] = useState({ text: "", type: "" });
 
-// ── 6. SAO LƯU & PHỤC HỒI ────────────────────────────────
+  const load = async () => {
+    try {
+      const res = await fetch(`${API}/maintenance/status`);
+      const data = await res.json();
+      setStatus(data);
+      setEditingDuration(data.duration || "");
+    } catch (e) {
+      setMsg({ text: "Lỗi tải trạng thái bảo trì", type: "error" });
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleToggle = async (enable) => {
+    try {
+      const res = await fetch(`${API}/maintenance/toggle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: enable, duration: editingDuration })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Lỗi bật/tắt bảo trì");
+      setMsg({ text: data.message, type: "success" });
+      setStatus({ maintenanceMode: data.maintenanceMode, duration: data.duration });
+    } catch (e) {
+      setMsg({ text: e.message, type: "error" });
+    }
+  };
+
+  return (
+    <div>
+      <Alert msg={msg.text} type={msg.type} />
+      <div className="card">
+        <div className="card-title">
+          <HardHat size={18} color="var(--accent)" /> Bảo trì hệ thống
+        </div>
+        <div className="alert info" style={{ marginBottom: 16 }}>
+          <Lightbulb size={16} color="var(--accent)" /> Khi bật bảo trì, các tài khoản khác (trừ Admin) sẽ không thể đăng nhập và sẽ thấy thông báo bảo trì.
+        </div>
+        
+        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
+          <label style={{ fontWeight: 600 }}>Trạng thái:</label>
+          {status.maintenanceMode ? (
+             <span style={{ color: "red", fontWeight: "bold" }}>ĐANG BẢO TRÌ</span>
+          ) : (
+             <span style={{ color: "green", fontWeight: "bold" }}>HOẠT ĐỘNG BÌNH THƯỜNG</span>
+          )}
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: "block", marginBottom: 8, fontWeight: 600 }}>Thời gian bảo trì dự kiến:</label>
+          <select 
+            className="config-input"
+            value={editingDuration}
+            onChange={(e) => setEditingDuration(e.target.value)}
+            style={{ width: "100%", maxWidth: 400, padding: "8px 12px" }}
+          >
+            <option value="">-- Chọn thời gian bảo trì --</option>
+            <option value="15 phút">15 phút</option>
+            <option value="30 phút">30 phút</option>
+            <option value="1 giờ">1 giờ</option>
+            <option value="2 giờ">2 giờ</option>
+            <option value="4 giờ">4 giờ</option>
+            <option value="8 giờ">8 giờ</option>
+            <option value="1 ngày">1 ngày</option>
+            <option value="Không xác định">Không xác định</option>
+          </select>
+        </div>
+
+        <div>
+          {status.maintenanceMode ? (
+             <button className="btn-cancel" onClick={() => handleToggle(false)}>Tắt bảo trì</button>
+          ) : (
+             <button className="btn-save" onClick={() => handleToggle(true)}>Bật bảo trì</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 7. SAO LƯU & PHỤC HỒI ────────────────────────────────
+
 function BackupSection() {
   const [msg, setMsg]       = useState({ text: "", type: "" });
   const [loading, setLoading] = useState(false);
@@ -621,18 +713,18 @@ export default function AdminDashboard({ user, onLogout }) {
   const navItems = [
     { id: "overview", icon: <Home size={18} />, label: "Tổng quan" },
     { id: "accounts", icon: <Users size={18} />, label: "Tài khoản" },
-    { id: "imports",  icon: <Download size={18} />, label: "Duyệt nhân viên" },
+    { id: "imports",  icon: <Download size={18} />, label: "Cấp tài khoản tự động" },
     { id: "logs",     icon: <ClipboardList size={18} />, label: "Nhật ký hệ thống" },
-    { id: "configs",  icon: <Settings size={18} />, label: "Cấu hình" },
+    { id: "maintenance", icon: <HardHat size={18} />, label: "Bảo trì hệ thống" },
     { id: "backup",   icon: <Save size={18} />, label: "Sao lưu & Phục hồi" },
   ];
 
   const pageTitles = {
     overview:  { title: "Tổng quan",      sub: "Thống kê tổng quan, chào mừng " + user.fullName },
     accounts:  { title: "Quản lý tài khoản",        sub: "Thêm, sửa, xóa và cấp quyền tài khoản" },
-    imports:   { title: "Duyệt nhân viên",          sub: "Xem và phê duyệt hồ sơ nhập từ Excel" },
+    imports:   { title: "Cấp tài khoản tự động",          sub: "Xem và cấp tài khoản tự động từ file Excel" },
     logs:      { title: "Nhật ký hệ thống",         sub: "Ghi lại toàn bộ hành động trong hệ thống" },
-    configs:   { title: "Cấu hình hệ thống",        sub: "Điều chỉnh các tham số như mức phạt, quy tắc..." },
+    maintenance: { title: "Bảo trì hệ thống",       sub: "Bật/tắt trạng thái bảo trì của hệ thống" },
     backup:    { title: "Sao lưu & Phục hồi",       sub: "Đảm bảo an toàn dữ liệu hệ thống" },
   };
 
@@ -664,7 +756,7 @@ export default function AdminDashboard({ user, onLogout }) {
         {tab === "accounts" && <AccountSection />}
         {tab === "imports"  && <ImportSection />}
         {tab === "logs"     && <LogSection />}
-        {tab === "configs"  && <ConfigSection />}
+        {tab === "maintenance" && <MaintenanceSection />}
         {tab === "backup"   && <BackupSection />}
       </main>
     </div>

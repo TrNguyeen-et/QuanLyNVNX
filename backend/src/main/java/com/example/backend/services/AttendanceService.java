@@ -1,6 +1,6 @@
 package com.example.backend.services;
 
-import com.example.backend.models.*;
+import com.example.backend.entities.*;
 import com.example.backend.repositories.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;

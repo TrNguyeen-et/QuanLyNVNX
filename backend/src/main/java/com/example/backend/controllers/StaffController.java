@@ -1,6 +1,6 @@
 package com.example.backend.controllers;
 
-import com.example.backend.models.*;
+import com.example.backend.entities.*;
 import com.example.backend.repositories.*;
 import com.example.backend.services.AttendanceService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.time.YearMonth;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -45,6 +46,16 @@ public class StaffController {
                     .collect(java.util.stream.Collectors.toList());
         }
         return assignments;
+    }
+
+    @GetMapping("/{userId}/schedule-by-date")
+    public List<ShiftAssignment> getScheduleByDate(
+            @PathVariable Long userId,
+            @RequestParam String date) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy nhân viên"));
+        LocalDate d = LocalDate.parse(date, DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        return shiftAssignmentRepository.findByUserAndWorkDate(user, d);
     }
 
     @PostMapping("/checkin")
@@ -100,15 +111,33 @@ public class StaffController {
         LeaveRequest req = new LeaveRequest();
         req.setUser(user);
         req.setRequestType(body.get("requestType").toString());
-        req.setTargetDate(LocalDate.parse(body.get("targetDate").toString()));
+        req.setTargetDate(LocalDate.parse(body.get("targetDate").toString(), DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+        if (body.get("shiftName") != null && !body.get("shiftName").toString().trim().isEmpty()) {
+            req.setShiftName(body.get("shiftName").toString());
+        }
         req.setReason(body.get("reason").toString());
         req.setStatus("PENDING");
+
+        // Validate shift existence
+        List<ShiftAssignment> assignments = shiftAssignmentRepository.findByUserAndWorkDate(user, req.getTargetDate());
+        if (assignments.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bạn không có ca làm việc nào trong ngày " + req.getTargetDate());
+        }
+        if (req.getShiftName() != null) {
+            boolean hasShift = assignments.stream().anyMatch(a -> a.getShift() != null && req.getShiftName().equals(a.getShift().getShiftName()));
+            if (!hasShift) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bạn không có " + req.getShiftName() + " trong ngày " + req.getTargetDate());
+            }
+        }
 
         if ("LEAVE".equals(req.getRequestType()) && !req.getTargetDate().isAfter(LocalDate.now()))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Vi phạm QLNX_QĐ 2: Xin nghỉ phép phải báo trước ít nhất 24 tiếng!");
 
-        if ("SHIFT_SWAP".equals(req.getRequestType()) && body.get("substituteUserId") != null) {
+        if ("SHIFT_SWAP".equals(req.getRequestType())) {
+            if (body.get("substituteUserId") == null || body.get("substituteUserId").toString().trim().isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đổi ca phải chọn người trực thay!");
+            }
             Long subId = Long.valueOf(body.get("substituteUserId").toString());
             userRepository.findById(subId).ifPresent(req::setSubstituteUser);
         }
@@ -147,7 +176,7 @@ public class StaffController {
 
     @GetMapping("/colleagues")
     public List<User> getColleagues(@RequestParam String date) {
-        LocalDate workDate = LocalDate.parse(date);
+        LocalDate workDate = LocalDate.parse(date, DateTimeFormatter.ofPattern("dd/MM/yyyy"));
         List<ShiftAssignment> assignments = shiftAssignmentRepository.findByWorkDate(workDate);
         List<User> colleagues = new ArrayList<>();
         for (ShiftAssignment a : assignments) {

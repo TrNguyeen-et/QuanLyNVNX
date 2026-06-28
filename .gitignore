@@ -1,4 +1,7 @@
-node_modules
+﻿node_modules
 mysql_data
 .env
 .vscode
+backend/target/
+frontend/dist/
+*.xlsx

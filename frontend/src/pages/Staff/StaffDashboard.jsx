@@ -4,20 +4,18 @@ import { getSalary } from "../../services/api";
 import "./StaffDashboard.css";
 import { AlertTriangle, Banknote, BarChart3, CalendarDays, Car, CheckCircle, ClipboardList, FileText, Flag, Handshake, Inbox, RefreshCw, User, Home } from "lucide-react";
 import UserProfile from "../../components/UserProfile";
+import NotificationBell from "../../components/NotificationBell";
 
 const API = "http://localhost:8080/api";
-const DAYS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+const DAYS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 const MONTHS_VN = [
   "Tháng 1","Tháng 2","Tháng 3","Tháng 4","Tháng 5","Tháng 6",
   "Tháng 7","Tháng 8","Tháng 9","Tháng 10","Tháng 11","Tháng 12"
 ];
 
 // ─── helpers ───────────────────────────────────────────────
-function fmtDate(d) {
-  if (!d) return "—";
-  const dt = new Date(d);
-  return dt.toLocaleString("vi-VN", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
-}
+import { formatDateTimeVN, formatDateVN, toInputDate, toBackendDate, parseDateString } from "../../utils/dateUtils";
+import { ASSIGNMENT_STATUS_LABEL } from "../../utils/constants";
 
 function Alert({ msg, type }) {
   if (!msg) return null;
@@ -31,8 +29,8 @@ function ScheduleSection({ user }) {
   const [month, setMonth] = useState(today.getMonth() + 1); // 1-12
   const [assignments, setAssignments] = useState([]);
   const [selectedDay, setSelectedDay] = useState(null);
-  const [selectedAssignment, setSelectedAssignment] = useState(null);
-  const [attendance, setAttendance] = useState(null);
+  const [selectedAssignments, setSelectedAssignments] = useState([]);
+  const [attendances, setAttendances] = useState({});
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState({ text: "", type: "" });
 
@@ -43,7 +41,7 @@ function ScheduleSection({ user }) {
     try {
       const res = await fetch(`${API}/staff/${user.id}/schedule?month=${monthStr}`);
       const data = await res.json();
-      setAssignments(Array.isArray(data) ? data : []);
+      setAssignments(Array.isArray(data) ? data.map(a => ({ ...a, workDate: a.workDate && a.workDate.includes('/') ? a.workDate.split('/').reverse().join('-') : a.workDate })) : []);
     } catch {
       setAssignments([]);
     }
@@ -54,61 +52,73 @@ function ScheduleSection({ user }) {
 
   // Build calendar grid
   const firstDay = new Date(year, month - 1, 1).getDay(); // 0=Sun
+  const shiftedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
   const daysInMonth = new Date(year, month, 0).getDate();
   const cells = [];
-  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let i = 0; i < shiftedFirstDay; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
-  const getAssignmentForDay = (day) => {
+  const getAssignmentsForDay = (day) => {
     const dateStr = `${year}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-    return assignments.find(a => a.workDate === dateStr);
+    return assignments.filter(a => a.workDate === dateStr);
   };
 
   const handleDayClick = async (day) => {
-    const a = getAssignmentForDay(day);
+    const aList = getAssignmentsForDay(day);
     setSelectedDay(day);
-    setSelectedAssignment(a || null);
-    setAttendance(null);
+    setSelectedAssignments(aList);
+    setAttendances({});
     setMsg({ text: "", type: "" });
-    if (a) {
-      try {
-        const res = await fetch(`${API}/staff/attendance/${a.id}`);
-        if (res.ok) setAttendance(await res.json());
-      } catch { /* chưa có attendance */ }
+    if (aList.length > 0) {
+      for (const a of aList) {
+        try {
+          const res = await fetch(`${API}/staff/attendance/${a.id}`);
+          if (res.ok) {
+            const att = await res.json();
+            setAttendances(prev => ({ ...prev, [a.id]: att }));
+          }
+        } catch { /* chưa có attendance */ }
+      }
     }
   };
 
-  const handleCheckIn = async () => {
+  const handleCheckIn = async (assignmentId) => {
     try {
       const res = await fetch(`${API}/staff/checkin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assignmentId: selectedAssignment.id }),
+        body: JSON.stringify({ assignmentId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Lỗi check in");
       setMsg({ text: `${data.message}`, type: "success" });
       // Reload attendance
-      const ar = await fetch(`${API}/staff/attendance/${selectedAssignment.id}`);
-      if (ar.ok) setAttendance(await ar.json());
+      const ar = await fetch(`${API}/staff/attendance/${assignmentId}`);
+      if (ar.ok) {
+        const att = await ar.json();
+        setAttendances(prev => ({ ...prev, [assignmentId]: att }));
+      }
       loadSchedule();
     } catch (e) {
       setMsg({ text: e.message, type: "error" });
     }
   };
 
-  const handleCheckOut = async () => {
+  const handleCheckOut = async (assignmentId) => {
     try {
       const res = await fetch(`${API}/staff/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assignmentId: selectedAssignment.id }),
+        body: JSON.stringify({ assignmentId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Lỗi check out");
       setMsg({ text: `${data.message}`, type: "success" });
-      const ar = await fetch(`${API}/staff/attendance/${selectedAssignment.id}`);
-      if (ar.ok) setAttendance(await ar.json());
+      const ar = await fetch(`${API}/staff/attendance/${assignmentId}`);
+      if (ar.ok) {
+        const att = await ar.json();
+        setAttendances(prev => ({ ...prev, [assignmentId]: att }));
+      }
       loadSchedule();
     } catch (e) {
       setMsg({ text: e.message, type: "error" });
@@ -144,24 +154,24 @@ function ScheduleSection({ user }) {
           {DAYS.map(d => <div key={d} className="day-header">{d}</div>)}
           {cells.map((day, i) => {
             if (!day) return <div key={`e-${i}`} className="day-cell empty" />;
-            const hasShift = getAssignmentForDay(day);
+            const dayAssignments = getAssignmentsForDay(day);
             return (
               <div
                 key={day}
                 className={[
                   "day-cell",
-                  hasShift ? "has-shift" : "",
+                  dayAssignments.length > 0 ? "has-shift" : "",
                   day === todayDay ? "today" : "",
                   day === selectedDay ? "selected" : "",
                 ].join(" ")}
                 onClick={() => handleDayClick(day)}
               >
                 <span className="day-num">{day}</span>
-                {hasShift && (
-                  <span className="day-shift">
-                    {hasShift.shift?.shiftName || "Ca"}
+                {dayAssignments.map((a, idx) => (
+                  <span key={idx} className="day-shift">
+                    {a.shift?.shiftName || "Ca"}
                   </span>
-                )}
+                ))}
               </div>
             );
           })}
@@ -171,70 +181,62 @@ function ScheduleSection({ user }) {
       {selectedDay && (
         <div className="shift-detail">
           <h4><ClipboardList size={18} color="var(--accent)" />Chi tiết ngày {selectedDay}/{month}/{year}</h4>
-          <Alert msg={msg.text} type={msg.type} />{!selectedAssignment ? (
+          <Alert msg={msg.text} type={msg.type} />
+          {!selectedAssignments || selectedAssignments.length === 0 ? (
             <div className="empty-state" style={{ padding: "20px" }}>
               Không có ca làm trong ngày này
             </div>
           ) : (
-            <>
-              <div className="shift-info-row">
-                <span>Ca làm</span>
-                <span>{selectedAssignment.shift?.shiftName || "—"}</span>
-              </div>
-              <div className="shift-info-row">
-                <span>Giờ bắt đầu</span>
-                <span>{selectedAssignment.shift?.startTime || "—"}</span>
-              </div>
-              <div className="shift-info-row">
-                <span>Giờ kết thúc</span>
-                <span>{selectedAssignment.shift?.endTime || "—"}</span>
-              </div>
-              <div className="shift-info-row">
-                <span>Trạng thái ca</span>
-                <span>
-                  <span className={`badge ${(selectedAssignment.status || "").toLowerCase().replace("_","-")}`}>
-                    {selectedAssignment.status || "ASSIGNED"}
-                  </span>
-                </span>
-              </div>
-              {attendance && (
-                <>
-                  <div className="shift-info-row">
-                    <span>Check in</span>
-                    <span>{fmtDate(attendance.checkInTime)}</span>
-                  </div>
-                  <div className="shift-info-row">
-                    <span>Check out</span>
-                    <span>{fmtDate(attendance.checkOutTime)}</span>
-                  </div>
-                  {attendance.penaltyFee != null && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              {selectedAssignments.map(a => {
+                const att = attendances[a.id];
+                return (
+                  <div key={a.id} style={{ border: "1px solid var(--border)", padding: "16px", borderRadius: "8px" }}>
                     <div className="shift-info-row">
-                      <span>Phí phạt</span>
-                      <span style={{ color: "var(--danger)" }}>
-                        {attendance.penaltyFee.toLocaleString("vi-VN")} ₫
+                      <span>Ca làm</span>
+                      <span>{a.shift?.shiftName || "—"}</span>
+                    </div>
+                    <div className="shift-info-row">
+                      <span>Giờ bắt đầu</span>
+                      <span>{a.shift?.startTime || "—"}</span>
+                    </div>
+                    <div className="shift-info-row">
+                      <span>Giờ kết thúc</span>
+                      <span>{a.shift?.endTime || "—"}</span>
+                    </div>
+                    <div className="shift-info-row">
+                      <span>Trạng thái ca</span>
+                      <span>
+                        <span className={`badge ${(a.status || "").toLowerCase().replace("_","-")}`}>
+                          {ASSIGNMENT_STATUS_LABEL[a.status || "ASSIGNED"] || a.status || "ASSIGNED"}
+                        </span>
                       </span>
                     </div>
-                  )}
-                </>
-              )}
+                    {att && (
+                      <>
+                        <div className="shift-info-row">
+                          <span>Check in</span>
+                          <span>{formatDateTimeVN(att.checkInTime)}</span>
+                        </div>
+                        <div className="shift-info-row">
+                          <span>Check out</span>
+                          <span>{formatDateTimeVN(att.checkOutTime)}</span>
+                        </div>
+                        {att.penaltyFee != null && (
+                          <div className="shift-info-row">
+                            <span>Phí phạt</span>
+                            <span style={{ color: "var(--danger)" }}>
+                              {att.penaltyFee.toLocaleString("vi-VN")} ₫
+                            </span>
+                          </div>
+                        )}
+                      </>
+                    )}
 
-              <div className="check-btns">
-                <button
-                  className="btn-checkin"
-                  onClick={handleCheckIn}
-                  disabled={!!(attendance?.checkInTime)}
-                >
-                  <CheckCircle size={16} color="var(--accent)" />Check In
-                </button>
-                <button
-                  className="btn-checkout"
-                  onClick={handleCheckOut}
-                  disabled={!(attendance?.checkInTime) || !!(attendance?.checkOutTime)}
-                >
-                  <Flag size={16} color="var(--accent)" />Check Out
-                </button>
-              </div>
-            </>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       )}
@@ -249,9 +251,11 @@ function RequestSection({ user }) {
   const [form, setForm] = useState({
     requestType: "LEAVE",
     targetDate: "",
+    shiftName: "",
     reason: "",
     substituteUserId: "",
   });
+  const [shiftsOnDate, setShiftsOnDate] = useState([]);
   const [msg, setMsg] = useState({ text: "", type: "" });
   const [loading, setLoading] = useState(false);
 
@@ -271,9 +275,44 @@ function RequestSection({ user }) {
       .catch(() => setAllStaff([]));
   }, [user.id, load]);
 
+  useEffect(() => {
+    if (form.targetDate) {
+      fetch(`${API}/staff/${user.id}/schedule-by-date?date=${form.targetDate}`)
+        .then(r => r.json())
+        .then(d => {
+          const arr = Array.isArray(d) ? d : [];
+          setShiftsOnDate(arr);
+          if (arr.length > 0) {
+            setForm(prev => ({ ...prev, shiftName: arr[0].shift?.shiftName || "" }));
+          } else {
+            setForm(prev => ({ ...prev, shiftName: "" }));
+          }
+        })
+        .catch(() => setShiftsOnDate([]));
+    } else {
+      setShiftsOnDate([]);
+      setForm(prev => ({ ...prev, shiftName: "" }));
+    }
+  }, [form.targetDate, user.id]);
+
   const handleSubmit = async () => {
     if (!form.targetDate || !form.reason.trim()) {
       setMsg({ text: "Vui lòng điền đầy đủ ngày và lý do!", type: "error" });
+      return;
+    }
+    if (!form.shiftName) {
+      setMsg({ text: "Bạn không có ca làm việc nào trong ngày này để tạo đơn!", type: "error" });
+      return;
+    }
+    if (form.requestType === "SHIFT_SWAP" && !form.substituteUserId) {
+      setMsg({ text: "Vui lòng chọn người trực thay để đổi ca!", type: "error" });
+      return;
+    }
+    const targetDateObj = parseDateString(form.targetDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (form.requestType === "LEAVE" && targetDateObj && targetDateObj <= today) {
+      setMsg({ text: "Vi phạm QLNX_QĐ 2: Xin nghỉ phép phải báo trước ít nhất 24 tiếng!", type: "error" });
       return;
     }
     setLoading(true);
@@ -285,9 +324,12 @@ function RequestSection({ user }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error("Gửi đơn thất bại");
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Gửi đơn thất bại");
+      }
       setMsg({ text: "Gửi đơn thành công!", type: "success" });
-      setForm({ requestType: "LEAVE", targetDate: "", reason: "", substituteUserId: "" });
+      setForm({ requestType: "LEAVE", targetDate: "", shiftName: "", reason: "", substituteUserId: "" });
       load();
     } catch (e) {
       setMsg({ text: e.message, type: "error" });
@@ -324,9 +366,27 @@ function RequestSection({ user }) {
           <label>Ngày xin nghỉ / đổi ca</label>
           <input
             type="date"
-            value={form.targetDate}
-            onChange={e => setForm({ ...form, targetDate: e.target.value })}
+            value={toInputDate(form.targetDate)}
+            onChange={e => setForm({ ...form, targetDate: toBackendDate(e.target.value) })}
           />
+        </div>
+        <div className="form-group">
+          <label>Ca làm</label>
+          <select
+            value={form.shiftName}
+            onChange={e => setForm({ ...form, shiftName: e.target.value })}
+            disabled={shiftsOnDate.length === 0}
+          >
+            {shiftsOnDate.length === 0 ? (
+              <option value="">Không có ca làm nào</option>
+            ) : (
+              shiftsOnDate.map((a, i) => (
+                <option key={i} value={a.shift?.shiftName || ""}>
+                  {a.shift?.shiftName || "Ca không tên"} ({a.shift?.startTime} - {a.shift?.endTime})
+                </option>
+              ))
+            )}
+          </select>
         </div>
         {form.requestType === "SHIFT_SWAP" && (
           <div className="form-group">
@@ -355,57 +415,7 @@ function RequestSection({ user }) {
         </button>
       </div>
 
-      {/* Danh sách đơn */}
-      <div className="card">
-        <div className="card-title"><ClipboardList size={18} color="var(--accent)" />Đơn đã gửi</div>
-        {requests.length === 0 ? (
-          <div className="empty-state">
-            <div className="emoji" style={{color: "var(--accent)"}}><Inbox size={48} /></div>
-            Chưa có đơn nào
-          </div>
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Loại</th>
-                  <th>Ngày</th>
-                  <th>Lý do</th>
-                  <th>Người thay</th>
-                  <th>Trạng thái</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {requests.map(r => (
-                  <tr key={r.id}>
-                    <td>{r.requestType === "LEAVE" ? "Nghỉ phép" : "Đổi ca"}</td>
-                    <td>{r.targetDate}</td>
-                    <td style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {r.reason}
-                    </td>
-                    <td>{r.substituteUser ? r.substituteUser.fullName : "—"}</td>
-                    <td>
-                      <span className={`badge ${r.status?.toLowerCase()}`}>
-                        {r.status === "PENDING" ? "Chờ duyệt"
-                          : r.status === "APPROVED" ? "Đã duyệt"
-                          : "Từ chối"}
-                      </span>
-                    </td>
-                    <td>
-                      {r.status === "PENDING" && (
-                        <button className="btn-cancel" onClick={() => handleCancel(r.id)}>
-                          Hủy
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {/* Lịch sử đơn đã được chuyển sang trang Quản lý */}
     </div>
   );
 }
@@ -474,120 +484,11 @@ function IncidentSection({ user }) {
         </button>
       </div>
 
-      <div className="card">
-        <div className="card-title"><ClipboardList size={18} color="var(--accent)" />Sự cố đã báo cáo</div>
-        {incidents.length === 0 ? (
-          <div className="empty-state">
-            <div className="emoji"><CheckCircle size={16} color="var(--accent)" /></div>
-            Chưa có sự cố nào được báo cáo
-          </div>
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Thời gian báo cáo</th>
-                  <th>Nội dung</th>
-                  <th>Trạng thái</th>
-                </tr>
-              </thead>
-              <tbody>
-                {incidents.map(inc => (
-                  <tr key={inc.id}>
-                    <td style={{ whiteSpace: "nowrap" }}>{fmtDate(inc.reportTime)}</td>
-                    <td>{inc.content}</td>
-                    <td>
-                      <span className={`badge ${inc.status?.toLowerCase()}`}>
-                        {inc.status === "PENDING" ? "Chờ xử lý" : "Đã xử lý"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {/* Lịch sử sự cố đã được chuyển sang trang Quản lý */}
     </div>
   );
 }
 
-// ─── SECTION: BÀN GIAO CA ─────────────────────────────────
-function HandoverSection({ user }) {
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [colleagues, setColleagues] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState({ text: "", type: "" });
-
-  const loadColleagues = async () => {
-    if (!date) return;
-    setLoading(true);
-    setMsg({ text: "", type: "" });
-    try {
-      const res = await fetch(`${API}/staff/colleagues?date=${date}`);
-      const data = await res.json();
-      setColleagues(Array.isArray(data) ? data.filter(c => c.id !== user.id) : []);
-      if (!Array.isArray(data) || data.filter(c => c.id !== user.id).length === 0) {
-        setMsg({ text: "Không có nhân viên nào làm cùng ngày này", type: "error" });
-      }
-    } catch {
-      setColleagues([]);
-      setMsg({ text: "Lỗi tải dữ liệu", type: "error" });
-    }
-    setLoading(false);
-  };
-
-  return (
-    <div>
-      <div className="card">
-        <div className="card-title"><Handshake size={18} color="var(--accent)" />Bàn giao ca</div>
-        <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
-          Xem danh sách đồng nghiệp làm cùng ca để bàn giao công việc.
-        </p>
-        <Alert msg={msg.text} type={msg.type} /> <div style={{ display: "flex", gap: 10, alignItems: "flex-end", marginBottom: 16 }}>
-          <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-            <label>Chọn ngày</label>
-            <input type="date" value={date} onChange={e => setDate(e.target.value)} />
-          </div>
-          <button className="btn-primary" onClick={loadColleagues} disabled={loading}>
-            {loading ? "Đang tải..." : "Xem"}
-          </button>
-        </div>
-
-        {colleagues.length > 0 && (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Họ tên</th>
-                  <th>Tài khoản</th>
-                  <th>Ca làm</th>
-                  <th>Trạng thái</th>
-                </tr>
-              </thead>
-              <tbody>
-                {colleagues.map(c => (
-                  <tr key={c.id}>
-                    <td><strong>{c.fullName}</strong></td>
-                    <td style={{ color: "var(--text-muted)" }}>{c.username}</td>
-                    <td>{c.workShift || "—"}</td>
-                    <td>
-                      <span className={`badge ${c.status?.toLowerCase()}`}>
-                        {c.status === "ACTIVE" ? "Đang làm"
-                          : c.status === "ON_LEAVE" ? "Nghỉ phép"
-                          : c.status || "—"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // ─── SECTION: XEM LƯƠNG ──────────────────────────────────
 function SalarySection({ user }) {
@@ -634,49 +535,46 @@ function SalarySection({ user }) {
           onChange={handleMonthChange}
           style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid var(--border)" }}
         />
-        <button onClick={fetchSalary} className="btn-primary" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingLeft: '32px', paddingRight: '32px', paddingTop: '6px', paddingBottom: '6px' }}>
-          <span style={{ position: 'absolute', left: '12px', display: 'flex', alignItems: 'center' }}>
-            <RefreshCw size={16} color="var(--accent)" />
-          </span>
-          <span>Tải lại</span>
-        </button>
       </div>
 
-      <Alert msg={msg.text} type={msg.type} />{loading ? (
+      <Alert msg={msg.text} type={msg.type} />
+      {loading ? (
         <div className="loading">Đang tải...</div>
       ) : salaryData ? (
         <div className="salary-result" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <div className="salary-item">
-            <span className="label">Nhân viên</span>
-            <span className="value">{salaryData.staffName}</span>
+          <div className="salary-item" style={{ display: "flex", justifyContent: "space-between", padding: "16px", background: "var(--surface)", borderRadius: "8px", border: "1px solid var(--border)" }}>
+            <span className="label" style={{ color: "var(--text-muted)" }}>Nhân viên</span>
+            <span className="value" style={{ fontWeight: "600" }}>{salaryData.staffName}</span>
           </div>
-          <div className="salary-item">
-            <span className="label">Tháng</span>
-            <span className="value">{salaryData.month}/{salaryData.year}</span>
+          <div className="salary-item" style={{ display: "flex", justifyContent: "space-between", padding: "16px", background: "var(--surface)", borderRadius: "8px", border: "1px solid var(--border)" }}>
+            <span className="label" style={{ color: "var(--text-muted)" }}>Tháng</span>
+            <span className="value" style={{ fontWeight: "600" }}>{salaryData.month}/{salaryData.year}</span>
           </div>
-          <div className="salary-item">
-            <span className="label">Số ca hoàn thành</span>
-            <span className="value">{salaryData.totalShifts}</span>
+          <div className="salary-item" style={{ display: "flex", justifyContent: "space-between", padding: "16px", background: "var(--surface)", borderRadius: "8px", border: "1px solid var(--border)" }}>
+            <span className="label" style={{ color: "var(--text-muted)" }}>Số ca hoàn thành</span>
+            <span className="value" style={{ fontWeight: "600" }}>{salaryData.totalShifts}</span>
           </div>
-          <div className="salary-item">
-            <span className="label">Số lần đi trễ</span>
-            <span className="value">{salaryData.lateCount}</span>
+          <div className="salary-item" style={{ display: "flex", justifyContent: "space-between", padding: "16px", background: "var(--surface)", borderRadius: "8px", border: "1px solid var(--border)" }}>
+            <span className="label" style={{ color: "var(--text-muted)" }}>Số lần đi trễ</span>
+            <span className="value" style={{ fontWeight: "600" }}>{salaryData.lateCount}</span>
           </div>
-          <div className="salary-item">
-            <span className="label">Tổng lương (chưa trừ phạt)</span>
-            <span className="value" style={{ color: "var(--primary)" }}>
+          <div className="salary-item" style={{ display: "flex", justifyContent: "space-between", padding: "16px", background: "var(--surface)", borderRadius: "8px", border: "1px solid var(--border)" }}>
+            <span className="label" style={{ color: "var(--text-muted)" }}>Tổng lương (chưa trừ phạt)</span>
+            <span className="value" style={{ color: "var(--primary)", fontWeight: "bold" }}>
               {salaryData.totalPay.toLocaleString("vi-VN")} ₫
             </span>
           </div>
-          <div className="salary-item">
-            <span className="label">Tổng tiền phạt</span>
-            <span className="value" style={{ color: "var(--danger)" }}>
+          <div className="salary-item" style={{ display: "flex", justifyContent: "space-between", padding: "16px", background: "var(--surface)", borderRadius: "8px", border: "1px solid var(--border)" }}>
+            <span className="label" style={{ color: "var(--text-muted)" }}>Tổng tiền phạt</span>
+            <span className="value" style={{ color: "var(--danger)", fontWeight: "bold" }}>
               {salaryData.totalPenalty.toLocaleString("vi-VN")} ₫
             </span>
           </div>
-          <div className="salary-item" style={{ gridColumn: "span 2", borderTop: "2px solid var(--border)", paddingTop: 12 }}>
-            <span className="label" style={{ fontSize: 18, fontWeight: 700 }}><Banknote size={18} color="var(--accent)" />Lương thực nhận</span>
-            <span className="value" style={{ fontSize: 24, fontWeight: 700, color: "var(--primary)" }}>
+          <div className="salary-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gridColumn: "span 2", padding: "20px 16px", background: "rgba(79, 142, 247, 0.05)", borderRadius: "8px", border: "1px dashed var(--accent)" }}>
+            <span className="label" style={{ fontSize: 18, fontWeight: 700, display: "flex", alignItems: "center", gap: "8px" }}>
+              <Banknote size={20} color="var(--accent)" /> Lương thực nhận
+            </span>
+            <span className="value" style={{ fontSize: 24, fontWeight: 800, color: "var(--primary)" }}>
               {salaryData.netSalary.toLocaleString("vi-VN")} ₫
             </span>
           </div>
@@ -772,8 +670,7 @@ export default function StaffDashboard({ user, onLogout }) {
     { id: "schedule", icon: <CalendarDays size={18} />, label: "Lịch làm việc" },
     { id: "requests", icon: <FileText size={18} />, label: "Đơn xin nghỉ/Đổi ca" },
     { id: "incidents", icon: <AlertTriangle size={18} />, label: "Báo cáo sự cố" },
-    { id: "handover", icon: <Handshake size={18} />, label: "Bàn giao ca" },
-    { id: "salary", icon: <BarChart3 size={18} />, label: "Báo cáo cá nhân" },
+    { id: "salary", icon: <BarChart3 size={18} />, label: "Báo cáo lương" },
   ];
 
   const pageTitles = {
@@ -781,8 +678,7 @@ export default function StaffDashboard({ user, onLogout }) {
     schedule:  { title: "Lịch làm việc",        sub: "Xem lịch và chấm công của bạn" },
     requests:  { title: "Đơn xin nghỉ / Đổi ca", sub: "Gửi và theo dõi trạng thái đơn" },
     incidents: { title: "Báo cáo sự cố",         sub: "Mất thẻ, không đủ chỗ, hỏng thiết bị..." },
-    handover:  { title: "Bàn giao ca",           sub: "Xem đồng nghiệp cùng ca" },
-    salary:    { title: "Báo cáo cá nhân",            sub: "Theo dõi chấm công và ước tính lương cá nhân" },
+    salary:    { title: "Báo cáo lương",            sub: "Theo dõi chấm công và chi tiết lương của bạn" },
   };
 
   return (
@@ -810,9 +706,10 @@ export default function StaffDashboard({ user, onLogout }) {
 
       {/* Main */}
       <main className="main-content">
-        <div className="page-header">
+        <div className="page-header" style={{ position: "relative" }}>
           <h1>{pageTitles[tab].title}</h1>
           <p>{pageTitles[tab].sub}</p>
+          <NotificationBell userId={user.id} />
         </div>
 
         {tab === "overview" && <OverviewSection user={user} pendingRequests={pendingRequests} pendingIncidents={pendingIncidents} />}
@@ -822,7 +719,6 @@ export default function StaffDashboard({ user, onLogout }) {
             {tab === "schedule"  && <ScheduleSection user={user} />}
             {tab === "requests"  && <RequestSection user={user} />}
             {tab === "incidents" && <IncidentSection user={user} />}
-            {tab === "handover"  && <HandoverSection user={user} />}
             {tab === "salary"    && <SalarySection user={user} />}
           </div>
         )}
